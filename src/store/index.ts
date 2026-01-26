@@ -1,261 +1,237 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
-// TypeScript Interfaces
+import {
+  collection,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  doc,
+  query,
+  where,
+} from "firebase/firestore";
+
+import { db } from "@/firebase";
+
+/* ===============================
+   Interfaces
+================================ */
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'technician' | 'manager';
+  role: "technician" | "manager";
   phone: string;
-  status: 'online' | 'offline';
+  status: "online" | "offline";
   activeJobs: number;
-  avatar?: string;
 }
+
+export interface Attachment {
+  type: "image" | "video" | "audio";
+  url: string;
+}
+
+
 
 export interface Ticket {
   id: string;
+
   title: string;
   description: string;
-  status: 'new' | 'assigned' | 'in-progress' | 'completed' | 'declined';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+
+  status: "new" | "assigned" | "in-progress" | "completed" | "declined";
+  priority: "low" | "medium" | "high" | "urgent";
+
   assigneeId: string | null;
   assigneeName: string | null;
+
   location: string;
+
   customerName: string;
   customerPhone: string;
+
   createdAt: Date;
   updatedAt: Date;
+
+  machineCode?: string;
+
+  attachments?: Attachment[];
 }
 
 export interface Activity {
   id: string;
   action: string;
   timestamp: Date;
-  type: 'assignment' | 'status' | 'creation' | 'completion';
+  type: "assignment" | "status" | "creation" | "completion";
 }
+
+/* ===============================
+   Helpers
+================================ */
+
+// Status Mapping
+function mapStatus(status: string): Ticket["status"] {
+  switch (status) {
+    case "open":
+      return "new";
+
+    case "assigned":
+      return "assigned";
+
+    case "in progress":
+    case "waiting_for_confirmation":
+      return "in-progress";
+
+    case "denied":
+      return "declined";
+
+    case "closed":
+      return "completed";
+
+    default:
+      return "new";
+  }
+}
+
+// Priority Mapping
+function mapPriority(status: string): Ticket["priority"] {
+  if (status === "open") return "high";
+  if (status === "closed") return "low";
+
+  return "medium";
+}
+
+// Format Ticket
+function formatTicket(docSnap: any): Ticket {
+  const data = docSnap.data();
+  
+
+  // Title from description
+  const title =
+    data.description
+      ?.split(" ")
+      .slice(0, 3)
+      .join(" ") || "No Title";
+
+  // Model from machine code
+  const model =
+    data.machineCode?.split("|")[1]?.trim() || "Unknown";
+
+  // ✅ Read attachments safely
+  const attachments =
+    Array.isArray(data.attachments)
+      ? data.attachments.map((item: any) => ({
+          type: item.type,
+          url: item.url || item.uri,
+
+        }))
+      : [];
+
+  return {
+    id: `TICKET #${String(data.ticketId).padStart(4, "0")}`,
+
+
+    title,
+
+    description: data.description || "",
+
+    status: mapStatus(data.status),
+
+    priority: mapPriority(data.status),
+
+    assigneeId: data.assigneeId || null,
+
+    assigneeName: data.assigneeName || null,
+
+    location: "xxxx",
+
+    customerName: data.userName || "Unknown",
+
+    customerPhone: data.phone || "",
+
+    createdAt: data.createdAt?.toDate() || new Date(),
+
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+
+    machineCode: data.machineCode,
+
+    attachments,
+  };
+}
+
+/* ===============================
+   Store Interface
+================================ */
 
 interface AppState {
   // Auth
   isAuthenticated: boolean;
   currentUser: { name: string; email: string; role: string } | null;
+
   login: (email: string, password: string) => boolean;
   logout: () => void;
 
   // Technicians
   technicians: User[];
-  addTechnician: (tech: Omit<User, 'id' | 'status' | 'activeJobs'>) => void;
-  updateTechnician: (id: string, updates: Partial<User>) => void;
-  deleteTechnician: (id: string) => void;
+
+  fetchTechnicians: () => Promise<void>;
+
+  addTechnician: (
+    tech: Omit<User, "id" | "status" | "activeJobs">
+  ) => Promise<void>;
+
+  deleteTechnician: (id: string) => Promise<void>;
+
+  updateTechnician: (
+    id: string,
+    updates: Partial<User>
+  ) => Promise<void>;
 
   // Tickets
   tickets: Ticket[];
-  addTicket: (ticket: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTicket: (id: string, updates: Partial<Ticket>) => void;
-  assignTicket: (ticketId: string, technicianId: string) => void;
-  deleteTicket: (id: string) => void;
+
+  fetchTickets: () => Promise<void>;
+
+  updateTicket: (
+    id: string,
+    updates: Partial<Ticket>
+  ) => Promise<void>;
+
+  assignTicket: (
+    ticketId: string,
+    technicianId: string
+  ) => Promise<void>;
 
   // Activities
   activities: Activity[];
-  addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void;
+
+  addActivity: (
+    activity: Omit<Activity, "id" | "timestamp">
+  ) => void;
 }
 
-// Mock Data
-const mockTechnicians: User[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john.doe@technobright.com',
-    role: 'technician',
-    phone: '+1 (555) 123-4567',
-    status: 'online',
-    activeJobs: 3,
-  },
-  {
-    id: '2',
-    name: 'Sarah Martinez',
-    email: 'sarah.m@technobright.com',
-    role: 'technician',
-    phone: '+1 (555) 234-5678',
-    status: 'online',
-    activeJobs: 2,
-  },
-  {
-    id: '3',
-    name: 'Mike Johnson',
-    email: 'mike.j@technobright.com',
-    role: 'manager',
-    phone: '+1 (555) 345-6789',
-    status: 'online',
-    activeJobs: 0,
-  },
-  {
-    id: '4',
-    name: 'Emily Chen',
-    email: 'emily.c@technobright.com',
-    role: 'technician',
-    phone: '+1 (555) 456-7890',
-    status: 'offline',
-    activeJobs: 0,
-  },
-  {
-    id: '5',
-    name: 'David Wilson',
-    email: 'david.w@technobright.com',
-    role: 'technician',
-    phone: '+1 (555) 567-8901',
-    status: 'online',
-    activeJobs: 1,
-  },
-];
-
-const mockTickets: Ticket[] = [
-  {
-    id: 'TKT-001',
-    title: 'AC Repair at Block C',
-    description: 'Central air conditioning unit not cooling properly. Customer reports warm air.',
-    status: 'new',
-    priority: 'high',
-    assigneeId: null,
-    assigneeName: null,
-    location: 'Block C, Unit 405, Marina Heights',
-    customerName: 'Robert Smith',
-    customerPhone: '+1 (555) 111-2222',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-  {
-    id: 'TKT-002',
-    title: 'Electrical Panel Inspection',
-    description: 'Annual safety inspection required for commercial building.',
-    status: 'assigned',
-    priority: 'medium',
-    assigneeId: '1',
-    assigneeName: 'John Doe',
-    location: 'Tower A, Downtown Business Center',
-    customerName: 'ABC Corporation',
-    customerPhone: '+1 (555) 222-3333',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-  },
-  {
-    id: 'TKT-003',
-    title: 'Plumbing Emergency - Water Leak',
-    description: 'Severe water leak in bathroom. Water spreading to adjacent rooms.',
-    status: 'in-progress',
-    priority: 'urgent',
-    assigneeId: '2',
-    assigneeName: 'Sarah Martinez',
-    location: '234 Oak Street, Apt 12',
-    customerName: 'Jennifer Lee',
-    customerPhone: '+1 (555) 333-4444',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 30 * 60 * 1000),
-  },
-  {
-    id: 'TKT-004',
-    title: 'HVAC Maintenance',
-    description: 'Routine quarterly maintenance for office building HVAC system.',
-    status: 'completed',
-    priority: 'low',
-    assigneeId: '5',
-    assigneeName: 'David Wilson',
-    location: 'Sunrise Office Park, Building 3',
-    customerName: 'Tech Solutions Inc',
-    customerPhone: '+1 (555) 444-5555',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-  },
-  {
-    id: 'TKT-005',
-    title: 'Generator Installation',
-    description: 'Install backup generator for residential property.',
-    status: 'declined',
-    priority: 'medium',
-    assigneeId: '4',
-    assigneeName: 'Emily Chen',
-    location: '567 Pine Avenue',
-    customerName: 'Michael Brown',
-    customerPhone: '+1 (555) 555-6666',
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-  },
-  {
-    id: 'TKT-006',
-    title: 'Fire Alarm System Check',
-    description: 'Monthly fire alarm system testing and certification.',
-    status: 'new',
-    priority: 'high',
-    assigneeId: null,
-    assigneeName: null,
-    location: 'Grand Hotel, 100 Central Blvd',
-    customerName: 'Grand Hotel Management',
-    customerPhone: '+1 (555) 666-7777',
-    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-  },
-  {
-    id: 'TKT-007',
-    title: 'Security Camera Repair',
-    description: 'Three outdoor cameras not recording. Need immediate repair.',
-    status: 'assigned',
-    priority: 'high',
-    assigneeId: '1',
-    assigneeName: 'John Doe',
-    location: 'Warehouse District, Unit 45',
-    customerName: 'Secure Storage LLC',
-    customerPhone: '+1 (555) 777-8888',
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-  },
-];
-
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    action: 'John Doe accepted Ticket #TKT-002',
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-    type: 'assignment',
-  },
-  {
-    id: '2',
-    action: 'Sarah Martinez started work on Ticket #TKT-003',
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    type: 'status',
-  },
-  {
-    id: '3',
-    action: 'David Wilson completed Ticket #TKT-004',
-    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    type: 'completion',
-  },
-  {
-    id: '4',
-    action: 'New ticket created: AC Repair at Block C',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    type: 'creation',
-  },
-  {
-    id: '5',
-    action: 'Emily Chen declined Ticket #TKT-005',
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-    type: 'status',
-  },
-];
+/* ===============================
+   Store
+================================ */
 
 export const useStore = create<AppState>((set, get) => ({
-  // Auth State
+  /* ===============================
+     Auth
+  ================================ */
+
   isAuthenticated: false,
+
   currentUser: null,
 
-  login: (email: string, password: string) => {
-    // Mock login - in production, this would validate against backend
+  login: (email, password) => {
     if (email && password) {
       set({
         isAuthenticated: true,
         currentUser: {
-          name: 'Admin User',
-          email: email,
-          role: 'Super Admin',
+          name: "Admin",
+          email,
+          role: "Super Admin",
         },
       });
       return true;
@@ -270,109 +246,168 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  // Technicians State
-  technicians: mockTechnicians,
+  /* ===============================
+     Technicians
+  ================================ */
 
-  addTechnician: (tech) => {
-    const newTech: User = {
-      ...tech,
-      id: `${Date.now()}`,
-      status: 'offline',
-      activeJobs: 0,
-    };
-    set((state) => ({
-      technicians: [...state.technicians, newTech],
-    }));
-    get().addActivity({
-      action: `New technician added: ${tech.name}`,
-      type: 'creation',
-    });
-  },
+  technicians: [],
 
-  updateTechnician: (id, updates) => {
-    set((state) => ({
-      technicians: state.technicians.map((t) =>
-        t.id === id ? { ...t, ...updates } : t
-      ),
-    }));
-  },
+  fetchTechnicians: async () => {
+    try {
+      const q = query(
+        collection(db, "user"),
+        where("role", "in", ["technician", "manager"])
+      );
 
-  deleteTechnician: (id) => {
-    const tech = get().technicians.find((t) => t.id === id);
-    set((state) => ({
-      technicians: state.technicians.filter((t) => t.id !== id),
-    }));
-    if (tech) {
-      get().addActivity({
-        action: `Technician removed: ${tech.name}`,
-        type: 'status',
+      const snap = await getDocs(q);
+
+      const users: User[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+
+        return {
+          id: d.id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          phone: data.phone || "",
+          status: data.status || "offline",
+          activeJobs: data.activeJobs || 0,
+        };
       });
+
+      set({ technicians: users });
+    } catch (err) {
+      console.error("Fetch technicians error:", err);
     }
   },
 
-  // Tickets State
-  tickets: mockTickets,
+  addTechnician: async (tech) => {
+    try {
+      const ref = await addDoc(collection(db, "user"), {
+        ...tech,
+        status: "offline",
+        activeJobs: 0,
+      });
 
-  addTicket: (ticket) => {
-    const newTicket: Ticket = {
-      ...ticket,
-      id: `TKT-${String(get().tickets.length + 1).padStart(3, '0')}`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    set((state) => ({
-      tickets: [...state.tickets, newTicket],
-    }));
-    get().addActivity({
-      action: `New ticket created: ${ticket.title}`,
-      type: 'creation',
-    });
+      const newTech: User = {
+        ...tech,
+        id: ref.id,
+        status: "offline",
+        activeJobs: 0,
+      };
+
+      set((state) => ({
+        technicians: [...state.technicians, newTech],
+      }));
+    } catch (err) {
+      console.error("Add technician error:", err);
+    }
   },
 
-  updateTicket: (id, updates) => {
-    set((state) => ({
-      tickets: state.tickets.map((t) =>
-        t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t
-      ),
-    }));
+  deleteTechnician: async (id) => {
+    try {
+      await deleteDoc(doc(db, "user", id));
+
+      set((state) => ({
+        technicians: state.technicians.filter((t) => t.id !== id),
+      }));
+    } catch (err) {
+      console.error("Delete technician error:", err);
+    }
   },
 
-  assignTicket: (ticketId, technicianId) => {
-    const technician = get().technicians.find((t) => t.id === technicianId);
-    if (technician) {
+  updateTechnician: async (id, updates) => {
+    try {
+      await updateDoc(doc(db, "user", id), updates);
+
+      set((state) => ({
+        technicians: state.technicians.map((t) =>
+          t.id === id ? { ...t, ...updates } : t
+        ),
+      }));
+    } catch (err) {
+      console.error("Update technician error:", err);
+    }
+  },
+
+  /* ===============================
+     Tickets
+  ================================ */
+
+  tickets: [],
+
+  fetchTickets: async () => {
+    try {
+      const snap = await getDocs(collection(db, "tickets"));
+
+      const tickets: Ticket[] = snap.docs.map(formatTicket);
+
+      set({ tickets });
+    } catch (err) {
+      console.error("Fetch tickets error:", err);
+    }
+  },
+
+  updateTicket: async (id, updates) => {
+    try {
+      await updateDoc(doc(db, "tickets", id), {
+        ...updates,
+        updatedAt: new Date(),
+      });
+
+      set((state) => ({
+        tickets: state.tickets.map((t) =>
+          t.id === id ? { ...t, ...updates } : t
+        ),
+      }));
+    } catch (err) {
+      console.error("Update ticket error:", err);
+    }
+  },
+
+  assignTicket: async (ticketId, technicianId) => {
+    try {
+      const tech = get().technicians.find(
+        (t) => t.id === technicianId
+      );
+
+      if (!tech) return;
+
+      await updateDoc(doc(db, "tickets", ticketId), {
+        status: "assigned",
+        assigneeId: technicianId,
+        assigneeName: tech.name,
+        updatedAt: new Date(),
+      });
+
       set((state) => ({
         tickets: state.tickets.map((t) =>
           t.id === ticketId
             ? {
                 ...t,
-                status: 'assigned',
+                status: "assigned",
                 assigneeId: technicianId,
-                assigneeName: technician.name,
-                updatedAt: new Date(),
+                assigneeName: tech.name,
               }
             : t
         ),
+
         technicians: state.technicians.map((t) =>
           t.id === technicianId
             ? { ...t, activeJobs: t.activeJobs + 1 }
             : t
         ),
       }));
-      get().addActivity({
-        action: `Ticket #${ticketId} assigned to ${technician.name}`,
-        type: 'assignment',
-      });
+    } catch (err) {
+      console.error("Assign ticket error:", err);
     }
   },
 
-  deleteTicket: (id) => {
-    set((state) => ({
-      tickets: state.tickets.filter((t) => t.id !== id),
-    }));
-  },
+  /* ===============================
+     Activities
+  ================================ */
 
-  // Activities State
-  activities: mockActivities,
+  activities: [],
 
   addActivity: (activity) => {
     const newActivity: Activity = {
@@ -380,6 +415,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: `${Date.now()}`,
       timestamp: new Date(),
     };
+
     set((state) => ({
       activities: [newActivity, ...state.activities].slice(0, 20),
     }));

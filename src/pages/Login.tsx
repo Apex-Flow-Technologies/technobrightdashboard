@@ -9,6 +9,12 @@ import { useStore } from '@/store';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/assets/logo.jpg';
 
+//firebase imports
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/firebase";
+
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,30 +30,50 @@ export default function Login() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  e.preventDefault();
+  setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  try {
+    // Firebase Login
+    const userCred = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
-    const success = login(email, password);
-    
-    if (success) {
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully signed in.',
-      });
-      navigate('/dashboard');
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Invalid credentials. Please try again.',
-        variant: 'destructive',
-      });
+    const uid = userCred.user.uid;
+
+    // Get role from Firestore (user collection)
+    const userDoc = await getDoc(doc(db, "user", uid));
+
+    if (!userDoc.exists()) {
+      throw new Error("No user record found");
     }
-    
-    setIsLoading(false);
-  };
+
+    const userData = userDoc.data();
+
+    // Save in store
+    login(email, password);
+
+    toast({
+      title: "Welcome back!",
+      description: `Logged in as ${userData.role}`,
+    });
+
+    navigate("/dashboard");
+
+  } catch (err) {
+    console.log(err);
+
+    toast({
+      title: "Error",
+      description: "Invalid email or password",
+      variant: "destructive",
+    });
+  }
+
+  setIsLoading(false);
+};
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

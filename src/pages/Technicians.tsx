@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Phone, Mail, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,16 +41,21 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function Technicians() {
-  const { technicians, addTechnician, deleteTechnician } = useStore();
+  const { technicians, addTechnician, deleteTechnician, fetchTechnicians,} = useStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newUser, setNewUser] = useState({
+    
     name: '',
     email: '',
     phone: '',
     role: 'technician' as 'technician' | 'manager',
   });
+  useEffect(() => {
+  fetchTechnicians();
+}, [fetchTechnicians]);
+
 
   const filteredTechnicians = technicians.filter(
     (tech) =>

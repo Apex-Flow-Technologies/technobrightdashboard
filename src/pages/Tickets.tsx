@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEffect } from "react";
 import { 
   Plus, 
   Search, 
@@ -87,7 +88,11 @@ function formatDate(date: Date): string {
 // --- Components ---
 
 export default function Tickets() {
-  const { tickets, technicians, assignTicket, updateTicket } = useStore();
+  const { tickets, technicians, assignTicket,fetchTickets, fetchTechnicians, updateTicket } = useStore();
+  useEffect(() => {
+  fetchTickets();
+  fetchTechnicians();
+}, []);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TicketStatus | 'all'>('all');
@@ -265,111 +270,161 @@ export default function Tickets() {
 }
 
 // --- Ticket Detail Component ---
-
 function TicketDetailView({ ticket }: { ticket: Ticket }) {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const status = statusConfig[ticket.status];
+  const status = statusConfig[ticket.status];
 
-    // Mock Data for fields not yet in your store but requested in UI
-    const machineCode = "MC-AX42";
-    const model = "Apex X200";
-    const category = "Breakdown";
+  // Temporary (remove later if from DB)
+  const category = "Breakdown";
 
-    return (
-        <div className="space-y-6">
-            {/* Header Section */}
-            <div className="flex items-start justify-between border-b pb-4">
-                <div>
-                    <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2", status.bgColor, status.color)}>
-                        {status.label}
-                    </div>
-                    <h2 className="text-2xl font-bold text-foreground">{ticket.title}</h2>
-                    <div className="flex items-center gap-2 text-muted-foreground mt-1 text-sm">
-                        <Calendar className="h-4 w-4" />
-                        <span>Date: {formatDate(ticket.createdAt)}</span>
-                        <span className="mx-1">•</span>
-                        <span className="font-mono">{ticket.id}</span>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="space-y-6">
 
-            {/* Key Details Grid */}
-            <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground font-medium">Machine Code</span>
-                    <span className="font-semibold">{machineCode}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground font-medium">Model</span>
-                    <span className="font-semibold">{model}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground font-medium">Category</span>
-                    <span className="font-semibold">{category}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/50 pb-1">
-                    <span className="text-muted-foreground font-medium">Priority</span>
-                    <Badge variant="outline" className={cn(priorityConfig[ticket.priority].color)}>
-                        {priorityConfig[ticket.priority].label}
-                    </Badge>
-                </div>
-            </div>
+      {/* Header */}
+      <div className="flex items-start justify-between border-b pb-4">
+        <div>
+          <div
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2",
+              status.bgColor,
+              status.color
+            )}
+          >
+            {status.label}
+          </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Description</h3>
-                <p className="text-muted-foreground leading-relaxed text-sm">
-                    {ticket.description}
-                </p>
-            </div>
+          <h2 className="text-2xl font-bold">{ticket.title}</h2>
 
-            {/* Audio Recording Section (New) */}
-            <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Voice Note</h3>
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-                    <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="h-10 w-10 rounded-full shrink-0"
-                        onClick={() => setIsPlaying(!isPlaying)}
-                    >
-                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-1" />}
-                    </Button>
-                    <div className="flex-1 space-y-1">
-                        <div className="h-1 w-full bg-primary/20 rounded-full overflow-hidden">
-                            <div className={cn("h-full bg-primary transition-all duration-1000", isPlaying ? "w-2/3" : "w-0")} />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>0:00</span>
-                            <span>0:45</span>
-                        </div>
-                    </div>
-                    <FileAudio className="h-5 w-5 text-muted-foreground" />
-                </div>
-            </div>
-
-            {/* Attachments */}
-            <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Attachments</h3>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                    {/* Placeholder for images */}
-                    <div className="relative group cursor-pointer overflow-hidden rounded-xl border aspect-video w-48 bg-muted">
-                         <img 
-                            src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?q=80&w=2670&auto=format&fit=crop" 
-                            alt="Machine Issue" 
-                            className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
-                         />
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Button variant="secondary" size="sm" className="gap-2">
-                                <ImageIcon className="h-4 w-4" /> View
-                            </Button>
-                         </div>
-                    </div>
-                </div>
-            </div>
+          <div className="flex items-center gap-2 text-muted-foreground mt-1 text-sm">
+            <Calendar className="h-4 w-4" />
+            <span>Date: {formatDate(ticket.createdAt)}</span>
+            <span className="mx-1">•</span>
+            <span className="font-mono">{ticket.id}</span>
+          </div>
         </div>
-    );
+      </div>
+
+      {/* Details */}
+      <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+
+          {/* Machine Code - Extended - removed model*/}
+        <div className="flex items-center gap-6 border-b pb-1 col-span-2">
+
+          <span className="text-muted-foreground font-medium">
+            Machine Code
+          </span>
+          <span className="font-semibold">
+            {ticket.machineCode || "-"}
+          </span>
+        </div>
+
+
+        <div className="flex justify-between border-b pb-1">
+          <span className="text-muted-foreground font-medium">Category</span>
+          <span className="font-semibold">{category}</span>
+        </div>
+
+        <div className="flex justify-between border-b pb-1">
+          <span className="text-muted-foreground font-medium">Priority</span>
+
+          <Badge
+            variant="outline"
+            className={cn(priorityConfig[ticket.priority].color)}
+          >
+            {priorityConfig[ticket.priority].label}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="space-y-2">
+        <h3 className="font-semibold text-lg">Description</h3>
+
+        <p className="text-muted-foreground text-sm">
+          {ticket.description}
+        </p>
+      </div>
+
+      {/* Voice Note */}
+      {ticket.attachments?.some(a => a.type === "audio") && (
+        <div className="space-y-2">
+
+          <h3 className="font-semibold text-lg">Voice Note</h3>
+
+          {ticket.attachments
+            .filter(a => a.type === "audio")
+            .map((audio, index) => (
+              <audio
+                key={index}
+                src={audio.url}
+                controls
+                className="w-full"
+              />
+            ))}
+        </div>
+      )}
+
+      {/* Attachments */}
+      {ticket.attachments?.some(a => a.type !== "audio") && (
+        <div className="space-y-2">
+
+          <h3 className="font-semibold text-lg">Attachments</h3>
+
+          <div className="flex gap-4 overflow-x-auto pb-2">
+
+            {ticket.attachments
+              .filter(a => a.type !== "audio")
+              .map((file, index) => {
+
+                // Image
+                if (file.type === "image") {
+                  return (
+                    <div
+                      key={index}
+                      className="relative group overflow-hidden rounded-xl border aspect-video w-48 bg-muted"
+                    >
+                      <img
+                        src={file.url}
+                        alt="Attachment"
+                        className="w-full h-full object-cover"
+                      />
+
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => window.open(file.url)}
+                        >
+                          <ImageIcon className="h-4 w-4" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Video
+                if (file.type === "video") {
+                  return (
+                    <video
+                      key={index}
+                      src={file.url}
+                      controls
+                      className="w-48 rounded-xl border"
+                    />
+                  );
+                }
+
+                return null;
+              })}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
 }
+
 
 // --- Ticket Card Component ---
 

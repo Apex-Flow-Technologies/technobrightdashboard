@@ -12,8 +12,18 @@ import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store';
 import { cn } from '@/lib/utils';
 
+//Firebase imports
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/firebase";
+
+
 export default function Dashboard() {
-  const { tickets, technicians, activities } = useStore();
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [technicians, setTechnicians] = useState<any[]>([]);
+  const { activities } = useStore();
+
+
 
   const stats = [
     {
@@ -27,7 +37,7 @@ export default function Dashboard() {
     },
     {
       title: 'Pending Assignment',
-      value: tickets.filter((t) => t.status === 'new').length,
+      value: tickets.filter((t) => t.status === 'open').length,
       icon: Clock,
       trend: '2 urgent',
       trendUp: false,
@@ -36,7 +46,7 @@ export default function Dashboard() {
     },
     {
       title: 'Active Technicians',
-      value: technicians.filter((t) => t.status === 'online').length,
+      value: technicians.filter((t) => t.status === 'online').length, // we don't have technician status yet
       icon: Users,
       trend: `of ${technicians.length}`,
       trendUp: true,
@@ -54,10 +64,45 @@ export default function Dashboard() {
     },
   ];
 
+  useEffect(() => {
+
+  const fetchData = async () => {
+
+    // ---- Fetch Tickets ----
+    const ticketSnap = await getDocs(collection(db, "tickets"));
+    const ticketData = ticketSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setTickets(ticketData);
+
+    // ---- Fetch Technicians ----
+    const techQuery = query(
+      collection(db, "user"),
+      where("role", "==", "technician")
+    );
+
+    const techSnap = await getDocs(techQuery);
+
+    const techData = techSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setTechnicians(techData);
+
+  };
+
+  fetchData();
+
+}, []);
+
+
   const ticketsByStatus = {
-    new: tickets.filter((t) => t.status === 'new').length,
+    new: tickets.filter((t) => t.status === 'open').length,
     assigned: tickets.filter((t) => t.status === 'assigned').length,
-    'in-progress': tickets.filter((t) => t.status === 'in-progress').length,
+    'in progress': tickets.filter((t) => t.status === 'in progress').length,
     completed: tickets.filter((t) => t.status === 'completed').length,
     declined: tickets.filter((t) => t.status === 'declined').length,
   };
@@ -107,7 +152,7 @@ export default function Dashboard() {
           <CardContent className="space-y-4">
             <StatusBar label="New" count={ticketsByStatus.new} total={tickets.length} color="bg-primary" />
             <StatusBar label="Assigned" count={ticketsByStatus.assigned} total={tickets.length} color="bg-accent-foreground" />
-            <StatusBar label="In Progress" count={ticketsByStatus['in-progress']} total={tickets.length} color="bg-warning" />
+            <StatusBar label="In Progress" count={ticketsByStatus['in progress']} total={tickets.length} color="bg-warning" />
             <StatusBar label="Completed" count={ticketsByStatus.completed} total={tickets.length} color="bg-success" />
             <StatusBar label="Declined" count={ticketsByStatus.declined} total={tickets.length} color="bg-destructive" />
           </CardContent>
