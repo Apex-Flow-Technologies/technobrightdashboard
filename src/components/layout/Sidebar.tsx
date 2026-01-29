@@ -1,10 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-// Keep your large logo import
+// Keep your logo imports
 import logo from '@/assets/logo.jpg'; 
 
 const navItems = [{
@@ -20,6 +20,11 @@ const navItems = [{
   label: 'Tickets',
   path: '/tickets'
 }, {
+  // --- NEW ITEM ADDED HERE ---
+  icon: UserPlus,
+  label: 'Add User',
+  path: '/add-user'
+}, {
   icon: Settings,
   label: 'Settings',
   path: '/settings'
@@ -30,7 +35,6 @@ export function Sidebar() {
   const location = useLocation();
 
   // Define the path for the public image here
-  // Note: We use forward slash '/' even if on Windows
   const logoSmall = "/image.png"; 
 
   return (
@@ -39,7 +43,6 @@ export function Sidebar() {
       <div className={cn("h-16 flex items-center border-b border-border px-4", collapsed ? "justify-center" : "justify-between")}>
         
         <div className="flex items-center gap-2 overflow-hidden">
-          {/* Switch Logic: If collapsed, use public image; else use imported logo */}
           <img 
             src={collapsed ? logoSmall : logo} 
             alt="Techno Bright" 
@@ -53,7 +56,6 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Toggle Button (Inside Header) */}
         <Button 
             variant="ghost" 
             size="icon" 
@@ -63,7 +65,6 @@ export function Sidebar() {
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
-        {/* Floating Expand Button (When Collapsed) */}
         {collapsed && (
             <Button 
                 variant="ghost" 
@@ -101,10 +102,9 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
-      {!collapsed && <div className="p-4 border-t border-border">
-          <div className="text-xs text-muted-foreground">© 2025 ApexFlow Technologies</div>
-        </div>}
+      <div className="p-4 border-t border-border">
+          {!collapsed && <div className="text-xs text-muted-foreground">© 2025 ApexFlow Technologies</div>}
+      </div>
     </aside>
   );
 }

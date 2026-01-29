@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Technicians from "./pages/Technicians";
 import Tickets from "./pages/Tickets";
 import Settings from "./pages/Settings";
+import AddUser from "./pages/AddUser";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/technicians" element={<Technicians />} />
             <Route path="/tickets" element={<Tickets />} />
+            <Route path="/add-user" element={<AddUser />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
