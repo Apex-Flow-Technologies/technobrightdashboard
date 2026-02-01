@@ -21,7 +21,7 @@ import { db } from "@/firebase";
 export default function Dashboard() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [technicians, setTechnicians] = useState<any[]>([]);
-  const { activities } = useStore();
+  const { activities, listenToActivities } = useStore();
 
 
 
@@ -95,6 +95,11 @@ export default function Dashboard() {
   };
 
   fetchData();
+
+  const unsubscribe = listenToActivities();
+
+  return () => unsubscribe();
+
 
 }, []);
 

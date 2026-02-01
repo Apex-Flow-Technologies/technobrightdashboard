@@ -9,6 +9,10 @@ import {
   doc,
   query,
   where,
+  orderBy,
+  limit,
+  serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 
 import { db } from "@/firebase";
@@ -32,11 +36,9 @@ export interface Attachment {
   url: string;
 }
 
-
-
 export interface Ticket {
   id: string;
-
+  displayId: string;
   title: string;
   description: string;
 
@@ -70,67 +72,48 @@ export interface Activity {
    Helpers
 ================================ */
 
-// Status Mapping
 function mapStatus(status: string): Ticket["status"] {
   switch (status) {
     case "open":
       return "new";
-
     case "assigned":
       return "assigned";
-
     case "in progress":
     case "waiting_for_confirmation":
       return "in-progress";
-
     case "denied":
       return "declined";
-
     case "closed":
       return "completed";
-
     default:
       return "new";
   }
 }
 
-// Priority Mapping
 function mapPriority(status: string): Ticket["priority"] {
   if (status === "open") return "high";
   if (status === "closed") return "low";
-
   return "medium";
 }
 
-// Format Ticket
 function formatTicket(docSnap: any): Ticket {
   const data = docSnap.data();
-  
 
-  // Title from description
   const title =
-    data.description
-      ?.split(" ")
-      .slice(0, 3)
-      .join(" ") || "No Title";
+    data.description?.split(" ").slice(0, 3).join(" ") || "No Title";
 
-  // Model from machine code
-  const model =
-    data.machineCode?.split("|")[1]?.trim() || "Unknown";
-
-  // ✅ Read attachments safely
   const attachments =
     Array.isArray(data.attachments)
       ? data.attachments.map((item: any) => ({
           type: item.type,
           url: item.url || item.uri,
-
         }))
       : [];
 
   return {
-    id: `TICKET #${String(data.ticketId).padStart(4, "0")}`,
+    id: docSnap.id,
 
+    displayId: `TICKET #${String(data.ticketId).padStart(4, "0")}`,
 
     title,
 
@@ -206,9 +189,7 @@ interface AppState {
   // Activities
   activities: Activity[];
 
-  addActivity: (
-    activity: Omit<Activity, "id" | "timestamp">
-  ) => void;
+  listenToActivities: () => () => void;
 }
 
 /* ===============================
@@ -355,6 +336,15 @@ export const useStore = create<AppState>((set, get) => ({
         updatedAt: new Date(),
       });
 
+      if (updates.status) {
+        await addDoc(collection(db, "activities"), {
+          type: updates.status === "completed" ? "completion" : "status",
+          action: `Ticket ${id} marked as ${updates.status}`,
+          timestamp: serverTimestamp(),
+          status: "active",
+        });
+      }
+
       set((state) => ({
         tickets: state.tickets.map((t) =>
           t.id === id ? { ...t, ...updates } : t
@@ -373,11 +363,24 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (!tech) return;
 
+      const ticket = get().tickets.find(
+        (t) => t.id === ticketId
+      );
+
+      const ticketNo = ticket?.displayId || ticketId;
+
       await updateDoc(doc(db, "tickets", ticketId), {
         status: "assigned",
         assigneeId: technicianId,
         assigneeName: tech.name,
         updatedAt: new Date(),
+      });
+
+      await addDoc(collection(db, "activities"), {
+        type: "assignment",
+        action: `${tech.name} assigned ${ticketNo}`,
+        timestamp: serverTimestamp(),
+        status: "active",
       });
 
       set((state) => ({
@@ -404,20 +407,33 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   /* ===============================
-     Activities
+     Activities (Realtime)
   ================================ */
 
   activities: [],
 
-  addActivity: (activity) => {
-    const newActivity: Activity = {
-      ...activity,
-      id: `${Date.now()}`,
-      timestamp: new Date(),
-    };
+  listenToActivities: () => {
+    const q = query(
+      collection(db, "activities"),
+      orderBy("timestamp", "desc"),
+      limit(20)
+    );
 
-    set((state) => ({
-      activities: [newActivity, ...state.activities].slice(0, 20),
-    }));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const activities: Activity[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+
+        return {
+          id: d.id,
+          action: data.action,
+          type: data.type,
+          timestamp: data.timestamp?.toDate() || new Date(),
+        };
+      });
+
+      set({ activities });
+    });
+
+    return unsubscribe;
   },
 }));

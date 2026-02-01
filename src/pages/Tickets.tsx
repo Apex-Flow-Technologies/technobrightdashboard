@@ -109,7 +109,7 @@ export default function Tickets() {
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
       ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.displayId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.customerName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || ticket.status === activeTab;
     return matchesSearch && matchesTab;
@@ -298,7 +298,7 @@ function TicketDetailView({ ticket }: { ticket: Ticket }) {
             <Calendar className="h-4 w-4" />
             <span>Date: {formatDate(ticket.createdAt)}</span>
             <span className="mx-1">•</span>
-            <span className="font-mono">{ticket.id}</span>
+            <span className="font-mono">{ticket.displayId}</span>
           </div>
         </div>
       </div>
@@ -460,7 +460,7 @@ function TicketCard({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-mono text-muted-foreground">{ticket.id}</span>
+                <span className="text-sm font-mono text-muted-foreground">{ticket.displayId}</span>
                 <Badge className={cn('text-xs', priority.color)} variant="secondary">
                   {priority.label}
                 </Badge>
