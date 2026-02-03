@@ -1,3 +1,5 @@
+// Admin view: manage & assign tickets only. Creation happens via customer flow.
+
 import { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
@@ -45,12 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+
 import { useStore, Ticket } from '@/store';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -117,7 +114,6 @@ export default function Tickets() {
   // Dialog States
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false); // NEW: Create Dialog State
 
   // Selection States
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -229,12 +225,7 @@ export default function Tickets() {
 
       toast({ title: "Success", description: "Ticket created successfully!" });
       
-      // Cleanup
-      setCreateDialogOpen(false);
-      setNewTicket({ title: '', description: '', customerName: '', machineCode: '', priority: 'medium', location: '' });
-      setSelectedFiles([]);
-      setAudioBlob(null);
-      fetchTickets(); // Refresh list
+
 
     } catch (error) {
       console.error(error);
@@ -298,11 +289,6 @@ export default function Tickets() {
           <p className="text-muted-foreground mt-1">Manage and assign service tickets</p>
         </div>
         
-        {/* OPEN CREATE DIALOG */}
-        <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Create Ticket
-        </Button>
       </div>
 
       {/* Main Content Card */}
@@ -360,166 +346,7 @@ export default function Tickets() {
         </CardContent>
       </Card>
 
-      {/* --- CREATE TICKET DIALOG (NEW) --- */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-                <DialogTitle>Create New Ticket</DialogTitle>
-                <DialogDescription>Fill in the details to create a new service request.</DialogDescription>
-            </DialogHeader>
-            
-            <form onSubmit={handleCreateTicket} className="space-y-6 mt-4">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Title</Label>
-                        <Input 
-                            placeholder="e.g. AC Not Cooling" 
-                            required 
-                            value={newTicket.title}
-                            onChange={(e) => setNewTicket({...newTicket, title: e.target.value})}
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Customer Name</Label>
-                        <Input 
-                            placeholder="Client Name" 
-                            required
-                            value={newTicket.customerName}
-                            onChange={(e) => setNewTicket({...newTicket, customerName: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Machine Code</Label>
-                        <Input 
-                            placeholder="MC-XXXX" 
-                            value={newTicket.machineCode}
-                            onChange={(e) => setNewTicket({...newTicket, machineCode: e.target.value})}
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Location</Label>
-                        <Input 
-                            placeholder="Block A, Floor 2" 
-                            required
-                            value={newTicket.location}
-                            onChange={(e) => setNewTicket({...newTicket, location: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Priority</Label>
-                        <Select 
-                            value={newTicket.priority} 
-                            onValueChange={(val) => setNewTicket({...newTicket, priority: val})}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Priority" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="urgent">Urgent</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea 
-                        placeholder="Describe the issue in detail..." 
-                        className="h-24" 
-                        required
-                        value={newTicket.description}
-                        onChange={(e) => setNewTicket({...newTicket, description: e.target.value})}
-                    />
-                </div>
-
-                {/* Media Upload Section */}
-                <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold text-sm">Media & Voice Notes</h3>
-                    
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Audio Recorder */}
-                        <div className="flex-1 border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-muted/20">
-                            <span className="text-sm font-medium">Voice Note</span>
-                            {!isRecording ? (
-                                <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-full border-primary/50" onClick={startRecording}>
-                                    <Mic className="h-6 w-6 text-primary" />
-                                </Button>
-                            ) : (
-                                <Button type="button" variant="destructive" size="icon" className="h-12 w-12 rounded-full animate-pulse" onClick={stopRecording}>
-                                    <StopCircle className="h-6 w-6" />
-                                </Button>
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                                {isRecording ? "Recording..." : audioBlob ? "Voice Note Recorded" : "Click to Record"}
-                            </span>
-                            {audioBlob && (
-                                <div className="w-full mt-2">
-                                    <audio src={URL.createObjectURL(audioBlob)} controls className="w-full h-8" />
-                                    <Button type="button" variant="ghost" size="sm" className="w-full text-xs text-destructive mt-1" onClick={() => setAudioBlob(null)}>
-                                        Remove Audio
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* File Upload */}
-                        <div className="flex-1 border rounded-lg p-4 flex flex-col items-center justify-center gap-2 bg-muted/20">
-                            <span className="text-sm font-medium">Attachments</span>
-                            <Input 
-                                type="file" 
-                                id="file-upload" 
-                                className="hidden" 
-                                multiple 
-                                accept="image/*,video/*"
-                                onChange={handleFileSelect}
-                            />
-                            <Label htmlFor="file-upload" className="cursor-pointer">
-                                <div className="flex flex-col items-center gap-2 p-2 hover:bg-accent rounded-md transition-colors">
-                                    <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground">Click to Upload Images/Video</span>
-                                </div>
-                            </Label>
-                        </div>
-                    </div>
-
-                    {/* File Previews */}
-                    {selectedFiles.length > 0 && (
-                        <div className="flex gap-2 flex-wrap">
-                            {selectedFiles.map((file, i) => (
-                                <div key={i} className="relative group border rounded-md overflow-hidden w-20 h-20">
-                                    <img 
-                                        src={URL.createObjectURL(file)} 
-                                        alt="preview" 
-                                        className="w-full h-full object-cover" 
-                                    />
-                                    <button 
-                                        type="button"
-                                        onClick={() => removeFile(i)}
-                                        className="absolute top-0 right-0 bg-destructive text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <Trash2 className="h-3 w-3" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isCreating}>
-                        {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <Save className="mr-2 h-4 w-4" />
-                        Create Ticket
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-      </Dialog>
+               
 
       {/* --- Ticket Details Dialog --- */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
