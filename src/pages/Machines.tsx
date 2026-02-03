@@ -239,7 +239,7 @@ export default function Machines() {
         <div>
           <h1 className="text-2xl font-bold">Machine List</h1>
           <p className="text-muted-foreground">
-            Inventory and customer assignment
+            Machine creation and customer assignment
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export default function Machines() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Inventory</CardTitle>
+              <CardTitle>Machine List</CardTitle>
               <CardDescription>
                 {machines.length} total machines
               </CardDescription>

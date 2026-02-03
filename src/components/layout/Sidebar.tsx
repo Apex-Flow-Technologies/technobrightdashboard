@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 // Added 'Wrench' icon for Machines
-import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, UserPlus, Wrench } from 'lucide-react';
+import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, Building2, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -26,9 +26,9 @@ const navItems = [{
   label: 'Machine List',
   path: '/machines'
 }, {
-  icon: UserPlus,
-  label: 'Add User',
-  path: '/add-user'
+  icon: Building2,
+  label: 'Customers',
+  path: '/Customers'
 }, {
   icon: Settings,
   label: 'Settings',
@@ -108,7 +108,7 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-border">
-          {!collapsed && <div className="text-xs text-muted-foreground">© 2025 ApexFlow Technologies</div>}
+          {!collapsed && <div className="text-xs text-muted-foreground">© 2026 ApexFlow Technologies</div>}
       </div>
     </aside>
   );
