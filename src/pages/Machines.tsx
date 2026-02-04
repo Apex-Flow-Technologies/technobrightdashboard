@@ -1,5 +1,9 @@
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/firebase";
+
 import { useState, useEffect } from "react";
-import { Search, Wrench, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Search, Wrench, MoreHorizontal, Edit, Trash2, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +20,7 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 
 import {
@@ -61,36 +63,79 @@ type Machine = {
   activeTicket: null;
 };
 
-/* -------------------------------------------------------------------------- */
-/* MOCK CUSTOMERS (TEMP) */
-/* -------------------------------------------------------------------------- */
+type UploadRow = {
+  machineCode: string;
+  customerName: string;
+  customerId: string | null;
+  valid: boolean;
+  error?: string;
+};
 
-const mockCustomers = [
-  { id: "cust1", name: "ABC Industries" },
-  { id: "cust2", name: "Sri Motors" },
-  { id: "cust3", name: "Ravi Engineering" },
-];
+type UserDoc = {
+  id: string;
+  name: string;
+};
 
 /* -------------------------------------------------------------------------- */
 /* HELPERS */
 /* -------------------------------------------------------------------------- */
 
-const normalizeStatus = (status: any): "Online" | "Offline" => {
-  if (typeof status !== "string") return "Offline";
-  return status.toLowerCase() === "online" ? "Online" : "Offline";
+const normalize = (v: string) => v?.trim().toLowerCase();
+
+/** SERIAL ONLY (before |) */
+const extractSerial = (machineCode: string) =>
+  machineCode.split("|")[0].trim().toLowerCase();
+
+const normalizeStatus = (status: any): "Online" | "Offline" =>
+  typeof status === "string" && status.toLowerCase() === "online"
+    ? "Online"
+    : "Offline";
+
+const statusBadgeClass = (status: "Online" | "Offline") =>
+  status === "Online"
+    ? "bg-green-600 text-white"
+    : "bg-slate-400 text-white";
+
+/* LOCKED FORMATTER */
+const formatMachineCode = (input: string) => {
+  const [raw, name = ""] = input.split("|");
+  const digits = raw.replace(/\D/g, "").slice(0, 6);
+
+  let out = "";
+  if (digits.length >= 1) out += digits.slice(0, 2);
+  if (digits.length >= 3) out += "-" + digits.slice(2, 4);
+  if (digits.length >= 5) out += "-" + digits.slice(4, 6);
+
+  if (digits.length === 6) {
+    out += " | " + name.replace(/[^a-zA-Z0-9\s]/g, "");
+  }
+
+  return out;
 };
 
-// 🔥 SERIAL SORT HELPER
-const getMachineSerial = (machineCode: string): number => {
-  if (!machineCode) return 0;
+const isValidMachineCode = (code: string) =>
+  /^\d{2}-\d{2}-\d{2} \| .+$/i.test(code);
 
-  // "98-77-451 | Compressor" → "98-77-451"
-  const serialPart = machineCode.split("|")[0].trim();
+/* -------------------------------------------------------------------------- */
+/* FIRESTORE HELPERS */
+/* -------------------------------------------------------------------------- */
 
-  // "98-77-451" → 98
-  const firstNumber = parseInt(serialPart.split("-")[0], 10);
+const fetchUsersDirect = async (): Promise<UserDoc[]> => {
+  const snap = await getDocs(collection(db, "user"));
+  return snap.docs.map((d) => ({
+    id: d.id,
+    name: d.data().name,
+  }));
+};
 
-  return isNaN(firstNumber) ? 0 : firstNumber;
+const fetchExistingMachineCodes = async (): Promise<Set<string>> => {
+  const machines = await fetchMachines();
+  return new Set(
+    machines
+      .map((m: any) => m.machineCode)
+      .filter(Boolean)
+      .map((c: string) => extractSerial(c))
+  );
 };
 
 /* -------------------------------------------------------------------------- */
@@ -98,370 +143,386 @@ const getMachineSerial = (machineCode: string): number => {
 /* -------------------------------------------------------------------------- */
 
 export default function Machines() {
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
-  /* ------------------------------ ADD MACHINE ------------------------------ */
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newMachine, setNewMachine] = useState({
-    machineCode: "",
-  });
+  const [newMachine, setNewMachine] = useState({ machineCode: "" });
 
-  /* ------------------------------ EDIT MACHINE ----------------------------- */
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
+  const [uploading, setUploading] = useState(false);
 
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const [skippedRows, setSkippedRows] = useState<UploadRow[]>([]);
+  const [showSkippedDialog, setShowSkippedDialog] = useState(false);
 
-  /* ------------------------------ LOAD DATA -------------------------------- */
+  /* LOAD MACHINES */
+
+  const loadMachines = async () => {
+    const data = await fetchMachines();
+    setMachines(
+      data.map((m: any) => ({
+        id: m.id,
+        machineCode: m.machineCode,
+        status: normalizeStatus(m.status),
+        assignedTo: m.assignedTo ?? null,
+        activeTicket: null,
+      }))
+    );
+  };
 
   useEffect(() => {
-    const loadMachines = async () => {
-      setLoading(true);
-
-      const data = await fetchMachines();
-
-      const normalized: Machine[] = data
-        .filter((m: any) => typeof m.machineCode === "string")
-        .map((m: any) => ({
-          id: m.id,
-          machineCode: m.machineCode,
-          status: normalizeStatus(m.status),
-          assignedTo: m.assignedTo ?? null,
-          activeTicket: null,
-        }));
-
-      setMachines(normalized);
-      setLoading(false);
-    };
-
     loadMachines();
   }, []);
 
-  /* ------------------------------ SORT + FILTER ---------------------------- */
-
-  const sortedMachines = [...machines].sort(
-    (a, b) =>
-      getMachineSerial(b.machineCode) -
-      getMachineSerial(a.machineCode)
-  );
-
-  const filteredMachines = sortedMachines.filter((machine) =>
-    machine.machineCode
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
-  );
-
-  /* ------------------------------- HANDLERS -------------------------------- */
+  /* ADD MACHINE */
 
   const handleAddMachine = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!isValidMachineCode(newMachine.machineCode)) {
+      toast({
+        title: "Invalid format",
+        description: "Use: 00-00-00 | Machine Name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const existing = await fetchExistingMachineCodes();
+    const key = extractSerial(newMachine.machineCode);
+
+    if (existing.has(key)) {
+      toast({
+        title: "Duplicate serial",
+        description: "This machine serial already exists",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await addMachineToDB({
       machineCode: newMachine.machineCode,
-      status: "offline",
       assignedTo: null,
+      status: "offline",
     });
 
     setIsAddDialogOpen(false);
     setNewMachine({ machineCode: "" });
-
-    const data = await fetchMachines();
-
-    setMachines(
-      data
-        .filter((m: any) => typeof m.machineCode === "string")
-        .map((m: any) => ({
-          id: m.id,
-          machineCode: m.machineCode,
-          status: normalizeStatus(m.status),
-          assignedTo: m.assignedTo ?? null,
-          activeTicket: null,
-        }))
-    );
+    await loadMachines();
 
     toast({ title: "Machine Added" });
   };
 
-  const openEditDialog = (machine: Machine) => {
-    setEditingMachine(machine);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleUpdateMachine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingMachine) return;
-
-    await updateMachineInDB(editingMachine.id, {
-      machineCode: editingMachine.machineCode,
-      status: editingMachine.status.toLowerCase(),
-      assignedTo: editingMachine.assignedTo ?? null,
-    });
-
-    setIsEditDialogOpen(false);
-    setEditingMachine(null);
-
-    const data = await fetchMachines();
-
-    setMachines(
-      data
-        .filter((m: any) => typeof m.machineCode === "string")
-        .map((m: any) => ({
-          id: m.id,
-          machineCode: m.machineCode,
-          status: normalizeStatus(m.status),
-          assignedTo: m.assignedTo ?? null,
-          activeTicket: null,
-        }))
-    );
-
-    toast({ title: "Machine Updated" });
-  };
+  /* DELETE */
 
   const handleDeleteMachine = async (id: string) => {
     await deleteMachineFromDB(id);
-    setMachines((prev) => prev.filter((m) => m.id !== id));
+    await loadMachines();
+    toast({ title: "Machine Removed", variant: "destructive" });
+  };
+
+  /* BULK UPLOAD */
+
+  const handleFileUpload = async (file: File) => {
+    const users = await fetchUsersDirect();
+    const existing = await fetchExistingMachineCodes();
+    const userMap = new Map(users.map((u) => [normalize(u.name), u]));
+
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<any>(sheet);
+
+    setUploadedCount(0);
+    setSkippedRows([]);
+
+    setUploadRows(
+      rows.map((row) => {
+        const machineCode = `${row["MACHINE NO"]}-${row["YEAR"]} | ${row["MACHINE TYPE"]}`;
+        const key = extractSerial(machineCode);
+
+        if (existing.has(key)) {
+          return {
+            machineCode,
+            customerName: row["CUSTOMER NAME"],
+            customerId: null,
+            valid: false,
+            error: "Duplicate serial",
+          };
+        }
+
+        const user = userMap.get(normalize(row["CUSTOMER NAME"]));
+        if (!user) {
+          return {
+            machineCode,
+            customerName: row["CUSTOMER NAME"],
+            customerId: null,
+            valid: false,
+            error: "Customer not found",
+          };
+        }
+
+        return {
+          machineCode,
+          customerName: row["CUSTOMER NAME"],
+          customerId: user.id,
+          valid: true,
+        };
+      })
+    );
+  };
+
+  const handleConfirmUpload = async () => {
+    setUploading(true);
+    setUploadedCount(0);
+
+    const existing = await fetchExistingMachineCodes();
+    const skipped: UploadRow[] = [];
+
+    const validRows = uploadRows.filter((r) => r.valid);
+
+    for (const r of validRows) {
+      const key = extractSerial(r.machineCode);
+
+      if (existing.has(key)) {
+        skipped.push({ ...r, error: "Already exists" });
+        continue;
+      }
+
+      await addMachineToDB({
+        machineCode: r.machineCode,
+        assignedTo: r.customerId,
+        status: r.customerId ? "online" : "offline",
+      });
+
+      existing.add(key);
+      setUploadedCount((c) => c + 1);
+    }
+
+    setUploading(false);
+    setIsUploadOpen(false);
+    setUploadRows([]);
+    setSkippedRows(skipped);
+    await loadMachines();
+
+    if (skipped.length > 0) setShowSkippedDialog(true);
 
     toast({
-      title: "Machine Removed",
-      variant: "destructive",
+      title: "Bulk upload completed",
+      description: `${validRows.length - skipped.length} uploaded, ${skipped.length} skipped`,
     });
   };
 
-  /* ---------------------------------- UI ---------------------------------- */
+  /* UI */
+
+  const validCount = uploadRows.filter((r) => r.valid).length;
+  const pendingCount = validCount - uploadedCount;
+
+  const filteredMachines = machines.filter(
+    (m) =>
+      typeof m.machineCode === "string" &&
+      m.machineCode.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Machine List</h1>
-          <p className="text-muted-foreground">
-            Machine creation and customer assignment
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">Machine List</h1>
 
-        {/* ADD MACHINE */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Wrench className="h-4 w-4" />
-              Add Machine
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          {/* BULK */}
+          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Bulk Upload
+              </Button>
+            </DialogTrigger>
 
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add New Machine</DialogTitle>
-              <DialogDescription>
-                Create machine without assigning customer
-              </DialogDescription>
-            </DialogHeader>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Bulk Upload Machines</DialogTitle>
+                <DialogDescription>
+                  Preview Excel data before uploading
+                </DialogDescription>
+              </DialogHeader>
 
-            <form onSubmit={handleAddMachine} className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Machine Code</Label>
-                <Input
-                  placeholder="12-23-122 | Alternator"
-                  value={newMachine.machineCode}
-                  onChange={(e) =>
-                    setNewMachine({ machineCode: e.target.value })
-                  }
-                  required
-                />
-              </div>
+              <Input
+                type="file"
+                accept=".xlsx,.csv"
+                onChange={(e) =>
+                  e.target.files && handleFileUpload(e.target.files[0])
+                }
+              />
+
+              {uploadRows.length > 0 && (
+                <>
+                  <div className="flex gap-3 mt-2 text-sm">
+                    <Badge>Will upload: {validCount}</Badge>
+                    <Badge variant="secondary">Uploaded: {uploadedCount}</Badge>
+                    <Badge variant="outline">Pending: {pendingCount}</Badge>
+                  </div>
+
+                  <div className="border rounded-md max-h-[300px] overflow-y-auto mt-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Machine Code</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {uploadRows.map((r, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono">{r.machineCode}</TableCell>
+                            <TableCell>{r.customerName}</TableCell>
+                            <TableCell>
+                              {r.valid ? (
+                                <Badge className="bg-green-600 text-white">Valid</Badge>
+                              ) : (
+                                <Badge variant="destructive">{r.error}</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
 
               <DialogFooter>
-                <Button type="submit">Save Machine</Button>
+                <Button
+                  onClick={handleConfirmUpload}
+                  disabled={uploading || validCount === 0}
+                >
+                  {uploading ? "Uploading..." : "Confirm Upload"}
+                </Button>
               </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+
+          {/* ADD MACHINE */}
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Wrench className="h-4 w-4 mr-2" />
+                Add Machine
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent>
+              <form onSubmit={handleAddMachine} className="space-y-3">
+                <Label>Machine Code</Label>
+                <Input
+                  value={newMachine.machineCode}
+                  placeholder="00-00-00 | Machine Name"
+                  onChange={(e) =>
+                    setNewMachine({
+                      machineCode: formatMachineCode(e.target.value),
+                    })
+                  }
+                />
+                <DialogFooter>
+                  <Button type="submit">Save</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* SKIPPED */}
+      <Dialog open={showSkippedDialog} onOpenChange={setShowSkippedDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Skipped Entries</DialogTitle>
+            <DialogDescription>
+              These machines already exist and were skipped
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[300px] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Machine Code</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {skippedRows.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-mono">{r.machineCode}</TableCell>
+                    <TableCell>{r.error}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* TABLE */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Machine List</CardTitle>
-              <CardDescription>
-                {machines.length} total machines
-              </CardDescription>
-            </div>
-
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search machine..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
+          <Input
+            className="w-72"
+            placeholder="Search machine..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </CardHeader>
-
-        <CardContent className="p-0">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Machine Code</TableHead>
-                <TableHead>Assigned Customer</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
-
             <TableBody>
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6">
-                    Loading machines…
+              {filteredMachines.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-mono">{m.machineCode}</TableCell>
+                  <TableCell>
+                    <Badge className={statusBadgeClass(m.status)}>
+                      {m.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost">
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem>
+                          <Edit className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDeleteMachine(m.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              )}
-
-              {!loading &&
-                filteredMachines.map((machine) => (
-                  <TableRow key={machine.id}>
-                    <TableCell className="font-mono">
-                      {machine.machineCode}
-                    </TableCell>
-
-                    <TableCell>
-                      {machine.assignedTo ? (
-                        <span className="font-medium">
-                          {
-                            mockCustomers.find(
-                              (c) => c.id === machine.assignedTo
-                            )?.name || "Unknown Customer"
-                          }
-                        </span>
-                      ) : (
-                        <span className="italic text-muted-foreground">
-                          Unassigned
-                        </span>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge
-                        className={
-                          machine.status === "Online"
-                            ? "bg-green-600"
-                            : "bg-gray-400"
-                        }
-                      >
-                        {machine.status}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => openEditDialog(machine)}
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleDeleteMachine(machine.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      {/* EDIT MACHINE */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Edit Machine</DialogTitle>
-            <DialogDescription>
-              Update machine and assign customer
-            </DialogDescription>
-          </DialogHeader>
-
-          {editingMachine && (
-            <form onSubmit={handleUpdateMachine} className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Machine Code</Label>
-                <Input
-                  value={editingMachine.machineCode}
-                  onChange={(e) =>
-                    setEditingMachine({
-                      ...editingMachine,
-                      machineCode: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Assigned Customer</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={editingMachine.assignedTo ?? ""}
-                  onChange={(e) =>
-                    setEditingMachine({
-                      ...editingMachine,
-                      assignedTo: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  {mockCustomers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Status</Label>
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={editingMachine.status}
-                  onChange={(e) =>
-                    setEditingMachine({
-                      ...editingMachine,
-                      status: e.target.value as "Online" | "Offline",
-                    })
-                  }
-                >
-                  <option value="Online">Online</option>
-                  <option value="Offline">Offline</option>
-                </select>
-              </div>
-
-              <DialogFooter>
-                <Button type="submit">Save Changes</Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
-/* -------------------------------------------------------------------------- */
