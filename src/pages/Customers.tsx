@@ -1,6 +1,6 @@
 import { orderBy } from "firebase/firestore";
 import * as XLSX from "xlsx";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, User, Phone, MapPin, Lock, AtSign } from "lucide-react"; // Added icons
 import { useEffect, useState } from "react";
 import {
   collection,
@@ -26,6 +26,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label"; // Make sure to import Label
 import {
   Table,
   TableBody,
@@ -40,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription, // Added Description
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -62,7 +64,6 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
 } from "@/components/ui/card";
 
@@ -324,55 +325,153 @@ export default function Users() {
         </CardContent>
       </Card>
 
-      {/* ADD CUSTOMER DIALOG */}
+      {/* ---------------- UPDATED ADD CUSTOMER DIALOG ---------------- */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Add Customer</DialogTitle>
+            <DialogTitle>Create New Customer</DialogTitle>
+            <DialogDescription>
+              Enter the details below to register a new customer account.
+            </DialogDescription>
           </DialogHeader>
 
-          <Input placeholder="Name" value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input placeholder="Phone" value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input placeholder="Address" value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })} />
-          <Input placeholder="Username (App Login)" value={form.username}
-            onChange={(e) => setForm({ ...form, username: e.target.value })} />
-          <Input type="password" placeholder="Password (App Login)" value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    placeholder="John Doe"
+                    className="pl-9"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    placeholder="+91 98765 43210"
+                    className="pl-9"
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm({ ...form, phone: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="address"
+                  placeholder="Street, City, State"
+                  className="pl-9"
+                  value={form.address}
+                  onChange={(e) =>
+                    setForm({ ...form, address: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="space-y-2">
+                <Label htmlFor="username">App Username</Label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="username"
+                    placeholder="jdoe123"
+                    className="pl-9"
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm({ ...form, username: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">App Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••"
+                    className="pl-9"
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           <DialogFooter>
-            <Button onClick={createCustomer}>Create</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={createCustomer}>Create Customer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* EDIT CUSTOMER DIALOG */}
-      <Dialog open={!!editCustomer} onOpenChange={() => setEditCustomer(null)}>
+      <Dialog
+        open={!!editCustomer}
+        onOpenChange={() => setEditCustomer(null)}
+      >
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
           </DialogHeader>
 
-          <Input value={editForm.name}
-            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-          <Input value={editForm.phone}
-            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-          <Input value={editForm.address}
-            onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+          <Input
+            value={editForm.name}
+            onChange={(e) =>
+              setEditForm({ ...editForm, name: e.target.value })
+            }
+          />
+          <Input
+            value={editForm.phone}
+            onChange={(e) =>
+              setEditForm({ ...editForm, phone: e.target.value })
+            }
+          />
+          <Input
+            value={editForm.address}
+            onChange={(e) =>
+              setEditForm({ ...editForm, address: e.target.value })
+            }
+          />
 
           {editingCustomerId && (
             <>
               <div className="mt-4">
                 <h4 className="font-medium mb-2">Assigned Machines</h4>
                 {assignedMachines(editingCustomerId).map((m) => (
-                  <div key={m.id}
-                    className="flex justify-between items-center border rounded px-3 py-2 mb-2">
+                  <div
+                    key={m.id}
+                    className="flex justify-between items-center border rounded px-3 py-2 mb-2"
+                  >
                     <span>{getMachineLabel(m)}</span>
-                    <Button variant="ghost" size="sm"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-destructive"
-                      onClick={() => unassignMachine(m.id)}>
+                      onClick={() => unassignMachine(m.id)}
+                    >
                       Remove
                     </Button>
                   </div>
@@ -381,7 +480,10 @@ export default function Users() {
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                  >
                     Assign Machine
                     <ChevronsUpDown className="h-4 w-4" />
                   </Button>
@@ -391,8 +493,10 @@ export default function Users() {
                     <CommandInput placeholder="Search machine..." />
                     <CommandGroup>
                       {availableMachines(editingCustomerId).map((m) => (
-                        <CommandItem key={m.id}
-                          onSelect={() => assignMachine(m.id)}>
+                        <CommandItem
+                          key={m.id}
+                          onSelect={() => assignMachine(m.id)}
+                        >
                           {getMachineLabel(m)}
                         </CommandItem>
                       ))}

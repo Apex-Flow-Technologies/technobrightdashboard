@@ -2,7 +2,17 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebase";
 
 import { useState, useEffect } from "react";
-import { Search, Wrench, MoreHorizontal, Edit, Trash2, Upload } from "lucide-react";
+import { 
+  Search, 
+  Wrench, 
+  MoreHorizontal, 
+  Edit, 
+  Trash2, 
+  Upload, 
+  Hash, 
+  Tag, 
+  FileSpreadsheet 
+} from "lucide-react";
 import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   fetchMachines,
   addMachine as addMachineToDB,
-  updateMachine as updateMachineInDB,
   deleteMachine as deleteMachineFromDB,
 } from "@/services/machines";
 
@@ -21,6 +30,7 @@ import {
   Card,
   CardContent,
   CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 
 import {
@@ -82,7 +92,6 @@ type UserDoc = {
 
 const normalize = (v: string) => v?.trim().toLowerCase();
 
-/** SERIAL ONLY (before |) */
 const extractSerial = (machineCode: string) =>
   machineCode.split("|")[0].trim().toLowerCase();
 
@@ -96,20 +105,13 @@ const statusBadgeClass = (status: "Online" | "Offline") =>
     ? "bg-green-600 text-white"
     : "bg-slate-400 text-white";
 
-/* LOCKED FORMATTER */
-const formatMachineCode = (input: string) => {
-  const [raw, name = ""] = input.split("|");
-  const digits = raw.replace(/\D/g, "").slice(0, 6);
-
+/* FORMATTER FOR SERIAL INPUT (00-00-00) */
+const formatSerialInput = (val: string) => {
+  const digits = val.replace(/\D/g, "").slice(0, 6);
   let out = "";
   if (digits.length >= 1) out += digits.slice(0, 2);
   if (digits.length >= 3) out += "-" + digits.slice(2, 4);
   if (digits.length >= 5) out += "-" + digits.slice(4, 6);
-
-  if (digits.length === 6) {
-    out += " | " + name.replace(/[^a-zA-Z0-9\s]/g, "");
-  }
-
   return out;
 };
 
@@ -149,7 +151,9 @@ export default function Machines() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newMachine, setNewMachine] = useState({ machineCode: "" });
+  
+  // Split state for better UI (Serial & Name)
+  const [addForm, setAddForm] = useState({ serial: "", name: "" });
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
@@ -160,7 +164,6 @@ export default function Machines() {
   const [showSkippedDialog, setShowSkippedDialog] = useState(false);
 
   /* LOAD MACHINES */
-
   const loadMachines = async () => {
     const data = await fetchMachines();
     setMachines(
@@ -179,21 +182,21 @@ export default function Machines() {
   }, []);
 
   /* ADD MACHINE */
+  const handleAddMachine = async () => {
+    // Combine inputs into the required format: "00-00-00 | Name"
+    const fullCode = `${addForm.serial} | ${addForm.name}`;
 
-  const handleAddMachine = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!isValidMachineCode(newMachine.machineCode)) {
+    if (!isValidMachineCode(fullCode)) {
       toast({
         title: "Invalid format",
-        description: "Use: 00-00-00 | Machine Name",
+        description: "Serial must be 6 digits and Name is required.",
         variant: "destructive",
       });
       return;
     }
 
     const existing = await fetchExistingMachineCodes();
-    const key = extractSerial(newMachine.machineCode);
+    const key = extractSerial(fullCode);
 
     if (existing.has(key)) {
       toast({
@@ -205,28 +208,26 @@ export default function Machines() {
     }
 
     await addMachineToDB({
-      machineCode: newMachine.machineCode,
+      machineCode: fullCode,
       assignedTo: null,
       status: "offline",
     });
 
     setIsAddDialogOpen(false);
-    setNewMachine({ machineCode: "" });
+    setAddForm({ serial: "", name: "" });
     await loadMachines();
 
     toast({ title: "Machine Added" });
   };
 
   /* DELETE */
-
   const handleDeleteMachine = async (id: string) => {
     await deleteMachineFromDB(id);
     await loadMachines();
     toast({ title: "Machine Removed", variant: "destructive" });
   };
 
-  /* BULK UPLOAD */
-
+  /* BULK UPLOAD HANDLERS */
   const handleFileUpload = async (file: File) => {
     const users = await fetchUsersDirect();
     const existing = await fetchExistingMachineCodes();
@@ -282,7 +283,6 @@ export default function Machines() {
 
     const existing = await fetchExistingMachineCodes();
     const skipped: UploadRow[] = [];
-
     const validRows = uploadRows.filter((r) => r.valid);
 
     for (const r of validRows) {
@@ -317,8 +317,7 @@ export default function Machines() {
     });
   };
 
-  /* UI */
-
+  /* UI HELPERS */
   const validCount = uploadRows.filter((r) => r.valid).length;
   const pendingCount = validCount - uploadedCount;
 
@@ -332,13 +331,18 @@ export default function Machines() {
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Machine List</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Machine Inventory</h1>
+          <p className="text-muted-foreground">
+            Track and manage all machines in the system
+          </p>
+        </div>
 
         <div className="flex gap-2">
-          {/* BULK */}
+          {/* BULK UPLOAD BUTTON */}
           <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="border-green-600 text-green-600">
                 <Upload className="h-4 w-4 mr-2" />
                 Bulk Upload
               </Button>
@@ -352,17 +356,26 @@ export default function Machines() {
                 </DialogDescription>
               </DialogHeader>
 
-              <Input
-                type="file"
-                accept=".xlsx,.csv"
-                onChange={(e) =>
-                  e.target.files && handleFileUpload(e.target.files[0])
-                }
-              />
+              <div
+                className="border-2 border-dashed rounded-lg p-10 text-center cursor-pointer hover:bg-slate-50 transition"
+                onClick={() => document.getElementById("bulkFile")?.click()}
+              >
+                <FileSpreadsheet className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-sm text-muted-foreground">Click to upload .xlsx file</p>
+                <input
+                  id="bulkFile"
+                  type="file"
+                  accept=".xlsx,.csv"
+                  hidden
+                  onChange={(e) =>
+                    e.target.files && handleFileUpload(e.target.files[0])
+                  }
+                />
+              </div>
 
               {uploadRows.length > 0 && (
                 <>
-                  <div className="flex gap-3 mt-2 text-sm">
+                  <div className="flex gap-3 mt-4 text-sm">
                     <Badge>Will upload: {validCount}</Badge>
                     <Badge variant="secondary">Uploaded: {uploadedCount}</Badge>
                     <Badge variant="outline">Pending: {pendingCount}</Badge>
@@ -384,7 +397,7 @@ export default function Machines() {
                             <TableCell>{r.customerName}</TableCell>
                             <TableCell>
                               {r.valid ? (
-                                <Badge className="bg-green-600 text-white">Valid</Badge>
+                                <Badge className="bg-green-600">Valid</Badge>
                               ) : (
                                 <Badge variant="destructive">{r.error}</Badge>
                               )}
@@ -408,47 +421,147 @@ export default function Machines() {
             </DialogContent>
           </Dialog>
 
-          {/* ADD MACHINE */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Wrench className="h-4 w-4 mr-2" />
-                Add Machine
-              </Button>
-            </DialogTrigger>
-
-            <DialogContent>
-              <form onSubmit={handleAddMachine} className="space-y-3">
-                <Label>Machine Code</Label>
-                <Input
-                  value={newMachine.machineCode}
-                  placeholder="00-00-00 | Machine Name"
-                  onChange={(e) =>
-                    setNewMachine({
-                      machineCode: formatMachineCode(e.target.value),
-                    })
-                  }
-                />
-                <DialogFooter>
-                  <Button type="submit">Save</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {/* ADD MACHINE BUTTON */}
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Wrench className="h-4 w-4 mr-2" />
+            Add Machine
+          </Button>
         </div>
       </div>
 
-      {/* SKIPPED */}
-      <Dialog open={showSkippedDialog} onOpenChange={setShowSkippedDialog}>
-        <DialogContent className="max-w-3xl">
+      {/* MACHINE LIST CARD */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Machine List</CardTitle>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search code..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Machine Code</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[100px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMachines.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-10 text-muted-foreground">
+                    No machines found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredMachines.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-mono font-medium">
+                      {m.machineCode}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusBadgeClass(m.status)}>
+                        {m.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem disabled>
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteMachine(m.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* --- ADD MACHINE DIALOG (UPDATED UI) --- */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Skipped Entries</DialogTitle>
+            <DialogTitle>Add New Machine</DialogTitle>
             <DialogDescription>
-              These machines already exist and were skipped
+              Enter the serial number and machine model.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[300px] overflow-y-auto">
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Serial Number</Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9 font-mono"
+                  placeholder="00-00-00"
+                  maxLength={8}
+                  value={addForm.serial}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, serial: formatSerialInput(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Machine Name / Type</Label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="e.g. Blaster X1"
+                  value={addForm.name}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, name: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddMachine}>Add Machine</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SKIPPED ITEMS DIALOG */}
+      <Dialog open={showSkippedDialog} onOpenChange={setShowSkippedDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Skipped Uploads</DialogTitle>
+            <DialogDescription>
+              The following machines were not uploaded because they already exist.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[300px] overflow-y-auto border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -460,69 +573,17 @@ export default function Machines() {
                 {skippedRows.map((r, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-mono">{r.machineCode}</TableCell>
-                    <TableCell>{r.error}</TableCell>
+                    <TableCell className="text-destructive">{r.error}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSkippedDialog(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* TABLE */}
-      <Card>
-        <CardHeader>
-          <Input
-            className="w-72"
-            placeholder="Search machine..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Machine Code</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMachines.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-mono">{m.machineCode}</TableCell>
-                  <TableCell>
-                    <Badge className={statusBadgeClass(m.status)}>
-                      {m.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleDeleteMachine(m.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }

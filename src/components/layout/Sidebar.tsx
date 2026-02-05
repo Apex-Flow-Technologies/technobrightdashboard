@@ -1,12 +1,14 @@
 import { NavLink, useLocation } from 'react-router-dom';
-// Added 'Wrench' icon for Machines
 import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, Building2, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-
-// Keep your logo imports
 import logo from '@/assets/logo.jpg'; 
+
+// 1. Define the Props interface
+interface SidebarProps {
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+}
 
 const navItems = [{
   icon: LayoutDashboard,
@@ -21,7 +23,6 @@ const navItems = [{
   label: 'Tickets',
   path: '/tickets'
 }, {
-  // --- NEW MACHINE LIST ITEM ---
   icon: Wrench,
   label: 'Machine List',
   path: '/machines'
@@ -35,11 +36,9 @@ const navItems = [{
   path: '/settings'
 }];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+// 2. Accept props in the component function
+export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const location = useLocation();
-
-  // Define the path for the public image here
   const logoSmall = "/image.png"; 
 
   return (
@@ -61,6 +60,7 @@ export function Sidebar() {
           )}
         </div>
 
+        {/* Internal Toggle Button (Visible when expanded) */}
         <Button 
             variant="ghost" 
             size="icon" 
@@ -70,6 +70,7 @@ export function Sidebar() {
           <ChevronLeft className="h-4 w-4" />
         </Button>
 
+        {/* Floating Toggle Button (Visible when collapsed) */}
         {collapsed && (
             <Button 
                 variant="ghost" 
@@ -112,4 +113,4 @@ export function Sidebar() {
       </div>
     </aside>
   );
-} 
+}

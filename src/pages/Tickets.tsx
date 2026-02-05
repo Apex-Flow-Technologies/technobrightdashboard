@@ -62,7 +62,7 @@ import { db, storage } from "../firebase"; // Adjust path to your firebase confi
 type TicketStatus = 'new' | 'assigned' | 'in-progress' | 'completed' | 'declined';
 
 const statusConfig: Record<TicketStatus, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
-  new: { label: 'New', color: 'text-primary', bgColor: 'bg-primary/10', icon: Clock },
+  new: { label: 'Unassigned', color: 'text-primary', bgColor: 'bg-primary/10', icon: Clock }, // Changed Label here
   assigned: { label: 'Assigned', color: 'text-accent-foreground', bgColor: 'bg-accent', icon: User },
   'in-progress': { label: 'In Progress', color: 'text-warning', bgColor: 'bg-warning/10', icon: ArrowRight },
   completed: { label: 'Completed', color: 'text-success', bgColor: 'bg-success/10', icon: CheckCircle2 },
@@ -212,8 +212,6 @@ export default function Tickets() {
       }
 
       // 3. Create Ticket in Firestore
-      // Note: We use 'addDoc' directly here to ensure it hits the DB. 
-      // Ideally this logic should be in your store, but for "code to be added" request, this works standalone.
       await addDoc(collection(db, "tickets"), {
         ...newTicket,
         status: 'new',
@@ -225,8 +223,6 @@ export default function Tickets() {
 
       toast({ title: "Success", description: "Ticket created successfully!" });
       
-
-
     } catch (error) {
       console.error(error);
       toast({ title: "Error", description: "Failed to create ticket", variant: "destructive" });
@@ -299,7 +295,9 @@ export default function Tickets() {
               <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full lg:w-auto">
                 {['all', 'new', 'assigned', 'in-progress', 'completed', 'declined'].map((tab) => (
                     <TabsTrigger key={tab} value={tab} className="text-xs sm:text-sm capitalize relative">
-                        {tab.replace('-', ' ')} ({ticketCounts[tab as keyof typeof ticketCounts]})
+                        {/* CHANGE DISPLAY NAME HERE */}
+                        {tab === 'new' ? 'Unassigned' : tab.replace('-', ' ')} 
+                        {' '}({ticketCounts[tab as keyof typeof ticketCounts]})
                         {tab === 'declined' && ticketCounts.declined > 0 && (
                             <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
                         )}
@@ -345,8 +343,6 @@ export default function Tickets() {
           </div>
         </CardContent>
       </Card>
-
-               
 
       {/* --- Ticket Details Dialog --- */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
@@ -396,12 +392,8 @@ export default function Tickets() {
   );
 }
 
-// ... Keep your TicketDetailView and TicketCard components exactly as they were ...
-// (I have omitted them here to save space, but you MUST keep them in the file)
-
 // --- Ticket Detail Component ---
 function TicketDetailView({ ticket }: { ticket: Ticket }) {
-    // ... Copy from your previous code ...
     const status = statusConfig[ticket.status];
     return (
         <div className="space-y-6">
@@ -419,12 +411,10 @@ function TicketDetailView({ ticket }: { ticket: Ticket }) {
                     </div>
                 </div>
             </div>
-            {/* ... Rest of details ... */}
              <div className="space-y-2">
                 <h3 className="font-semibold text-lg">Description</h3>
                 <p className="text-muted-foreground text-sm">{ticket.description}</p>
             </div>
-            {/* Show Audio/Media if exists */}
              {ticket.attachments?.some(a => a.type === "audio") && (
                 <div className="space-y-2">
                      <h3 className="font-semibold text-lg">Voice Note</h3>
@@ -448,7 +438,6 @@ function TicketDetailView({ ticket }: { ticket: Ticket }) {
 }
 
 function TicketCard({ ticket, onAssign, onStatusChange, onClick }: any) {
-    // ... Copy from your previous code ...
     const status = statusConfig[ticket.status];
     const priority = priorityConfig[ticket.priority];
     return (
@@ -465,7 +454,6 @@ function TicketCard({ ticket, onAssign, onStatusChange, onClick }: any) {
                         </div>
                     </div>
                  </div>
-                 {/* ... Actions ... */}
                   {ticket.status === 'new' && (
                     <Button onClick={(e) => { e.stopPropagation(); onAssign(e); }} size="sm" className="gap-1.5">
                         <User className="h-3.5 w-3.5" /> Assign
