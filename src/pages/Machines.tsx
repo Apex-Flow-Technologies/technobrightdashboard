@@ -1,4 +1,9 @@
-import { collection, getDocs } from "firebase/firestore";
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  updateDoc 
+} from "firebase/firestore";
 import { db } from "@/firebase";
 
 import { useState, useEffect } from "react";
@@ -150,15 +155,19 @@ export default function Machines() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Add Dialog State
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  
-  // Split state for better UI (Serial & Name)
   const [addForm, setAddForm] = useState({ serial: "", name: "" });
 
+  // Edit Dialog State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editMachineId, setEditMachineId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ serial: "", name: "" });
+
+  // Upload State
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadRows, setUploadRows] = useState<UploadRow[]>([]);
   const [uploading, setUploading] = useState(false);
-
   const [uploadedCount, setUploadedCount] = useState(0);
   const [skippedRows, setSkippedRows] = useState<UploadRow[]>([]);
   const [showSkippedDialog, setShowSkippedDialog] = useState(false);
@@ -183,7 +192,6 @@ export default function Machines() {
 
   /* ADD MACHINE */
   const handleAddMachine = async () => {
-    // Combine inputs into the required format: "00-00-00 | Name"
     const fullCode = `${addForm.serial} | ${addForm.name}`;
 
     if (!isValidMachineCode(fullCode)) {
@@ -218,6 +226,54 @@ export default function Machines() {
     await loadMachines();
 
     toast({ title: "Machine Added" });
+  };
+
+  /* EDIT MACHINE HANDLERS */
+  const handleEditClick = (machine: Machine) => {
+    // Parse existing "00-00-00 | Name"
+    const parts = machine.machineCode.split("|");
+    const serial = parts[0]?.trim() || "";
+    const name = parts.slice(1).join("|").trim() || ""; // Join rest in case name has |
+
+    setEditMachineId(machine.id);
+    setEditForm({ serial, name });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateMachine = async () => {
+    if (!editMachineId) return;
+
+    const fullCode = `${editForm.serial} | ${editForm.name}`;
+
+    if (!isValidMachineCode(fullCode)) {
+      toast({
+        title: "Invalid format",
+        description: "Serial must be 6 digits and Name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const machineRef = doc(db, "machines", editMachineId);
+      await updateDoc(machineRef, {
+        machineCode: fullCode,
+      });
+
+      setIsEditOpen(false);
+      setEditMachineId(null);
+      setEditForm({ serial: "", name: "" });
+      await loadMachines();
+
+      toast({ title: "Machine Updated" });
+    } catch (error) {
+      console.error("Update failed", error);
+      toast({
+        title: "Update failed",
+        description: "Could not update machine details.",
+        variant: "destructive",
+      });
+    }
   };
 
   /* DELETE */
@@ -480,7 +536,7 @@ export default function Machines() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem disabled>
+                          <DropdownMenuItem onClick={() => handleEditClick(m)}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -500,7 +556,7 @@ export default function Machines() {
         </CardContent>
       </Card>
 
-      {/* --- ADD MACHINE DIALOG (UPDATED UI) --- */}
+      {/* --- ADD MACHINE DIALOG --- */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -548,6 +604,58 @@ export default function Machines() {
               Cancel
             </Button>
             <Button onClick={handleAddMachine}>Add Machine</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- EDIT MACHINE DIALOG --- */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Machine</DialogTitle>
+            <DialogDescription>
+              Update the machine serial number or model name.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Serial Number</Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9 font-mono"
+                  placeholder="00-00-00"
+                  maxLength={8}
+                  value={editForm.serial}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, serial: formatSerialInput(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Machine Name / Type</Label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="e.g. Blaster X1"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateMachine}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
