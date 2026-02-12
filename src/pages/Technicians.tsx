@@ -67,11 +67,12 @@ export default function Technicians() {
     fetchTechnicians();
   }, [fetchTechnicians]);
 
-  const filteredTechnicians = technicians.filter(
-    (tech) =>
-      tech.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tech.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+const filteredTechnicians = technicians.filter(
+  (tech) =>
+    (tech.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (tech.email || "").toLowerCase().includes(searchQuery.toLowerCase())
+);
+
 
   // --- Handlers ---
 
@@ -271,7 +272,11 @@ export default function Technicians() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
                           <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                            {tech.name.split(' ').map(n => n[0]).join('')}
+                            {(tech.name || "U")
+  .split(" ")
+  .map((n) => n[0])
+  .join("")}
+
                           </AvatarFallback>
                         </Avatar>
                         <div>
