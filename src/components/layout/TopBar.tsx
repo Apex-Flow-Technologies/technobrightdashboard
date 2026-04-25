@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, User } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, User, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,15 +9,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store';
 import { useNavigate } from 'react-router-dom';
 
-export function TopBar() {
-  const { currentUser, logout, activities } = useStore();
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+  const { currentUser, logout } = useStore();
   const navigate = useNavigate();
-
-  const recentNotifications = activities.slice(0, 3);
 
   const handleLogout = () => {
     logout();
@@ -25,13 +22,22 @@ export function TopBar() {
   };
 
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Admin Dashboard</h1>
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-6">
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="lg:hidden" 
+          onClick={onMenuClick}
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+        <h1 className="text-lg md:text-xl font-semibold text-foreground truncate max-w-[150px] sm:max-w-none">
+          Admin Dashboard
+        </h1>
       </div>
 
       <div className="flex items-center gap-4">
-      
         {/* Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -65,13 +71,4 @@ export function TopBar() {
       </div>
     </header>
   );
-}
-
-function formatTimeAgo(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
 }
