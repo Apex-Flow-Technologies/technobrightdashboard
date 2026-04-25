@@ -461,88 +461,157 @@ export default function Customers() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead 
-                  className="cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => handleSort("name")}
-                >
-                  <div className="flex items-center gap-2">
-                    Full Name
-                    {sortField === "name" && (
-                      <ArrowUpDown className={cn("h-4 w-4", sortDir === "desc" ? "rotate-180" : "")} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => handleSort("username")}
-                >
-                   <div className="flex items-center gap-2">
-                    Username
-                    {sortField === "username" && (
-                      <ArrowUpDown className={cn("h-4 w-4", sortDir === "desc" ? "rotate-180" : "")} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Machines</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                  [...Array(5)].map((_, i) => (
-                      <TableRow key={i}>
-                          <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell><div className="h-4 w-8 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell/>
-                      </TableRow>
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead 
+                    className="cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="flex items-center gap-2">
+                      Full Name
+                      {sortField === "name" && (
+                        <ArrowUpDown className={cn("h-4 w-4", sortDir === "desc" ? "rotate-180" : "")} />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => handleSort("username")}
+                  >
+                     <div className="flex items-center gap-2">
+                      Username
+                      {sortField === "username" && (
+                        <ArrowUpDown className={cn("h-4 w-4", sortDir === "desc" ? "rotate-180" : "")} />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Machines</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                    [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell><div className="h-4 w-8 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell/>
+                        </TableRow>
+                    ))
+                ) : paginatedCustomers.length === 0 ? (
+                   <TableRow>
+                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                          {search ? "No customers found matching that name." : "No customers found."}
+                      </TableCell>
+                   </TableRow>
+                ) : (
+                  paginatedCustomers.map((c) => (
+                    <TableRow key={c.id} className="hover:bg-muted/30">
+                      <TableCell className="font-medium">{c.name}</TableCell>
+                      <TableCell>{c.email || "-"}</TableCell>
+                      <TableCell>{c.username || "-"}</TableCell>
+                      <TableCell>{c.phone || "-"}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center justify-center bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
+                          {assignedMachines(c.id).length}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditClick(c)}>
+                              <Wrench className="mr-2 h-4 w-4" /> Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteCustomer(c)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
                   ))
-              ) : paginatedCustomers.length === 0 ? (
-                 <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                        {search ? "No customers found matching that name." : "No customers found."}
-                    </TableCell>
-                 </TableRow>
-              ) : (
-                paginatedCustomers.map((c) => (
-                  <TableRow key={c.id} className="hover:bg-muted/30">
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{c.email || "-"}</TableCell>
-                    <TableCell>{c.username || "-"}</TableCell>
-                    <TableCell>{c.phone || "-"}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center justify-center bg-primary/10 text-primary rounded-full px-2.5 py-0.5 text-xs font-medium">
-                        {assignedMachines(c.id).length}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(c)}>
-                            <Wrench className="mr-2 h-4 w-4" /> Edit Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deleteCustomer(c)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-border">
+            {isLoading ? (
+              [...Array(3)].map((_, i) => (
+                <div key={i} className="p-4 space-y-3">
+                  <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse"/>
+                  <div className="h-3 w-1/2 bg-slate-100 rounded animate-pulse"/>
+                </div>
+              ))
+            ) : paginatedCustomers.map((c) => (
+              <div key={c.id} className="p-4 space-y-3 active:bg-muted/50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <p className="font-bold text-foreground truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">@{c.username || 'no-username'}</p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2">
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem onClick={() => handleEditClick(c)}>
+                        <Wrench className="mr-2 h-4 w-4" /> Edit Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive" 
+                        onClick={() => deleteCustomer(c)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Contact</p>
+                    <div className="flex items-center gap-2 text-foreground font-medium">
+                      <Phone className="h-3.5 w-3.5 text-primary" />
+                      {c.phone || 'N/A'}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Machines</p>
+                    <div className="inline-flex items-center gap-1.5 font-bold text-primary">
+                      <Wrench className="h-3.5 w-3.5" />
+                      {assignedMachines(c.id).length}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <span className="truncate">{c.email || 'No email provided'}</span>
+                </div>
+              </div>
+            ))}
+            {paginatedCustomers.length === 0 && !isLoading && (
+              <div className="py-20 text-center">
+                <p className="text-muted-foreground">No customers found</p>
+              </div>
+            )}
+          </div>
         </CardContent>
         
         {/* RIGHT ALIGNED PAGINATION */}

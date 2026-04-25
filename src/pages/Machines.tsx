@@ -772,70 +772,128 @@ export default function Machines() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead>Machine Code</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[100px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                  [...Array(5)].map((_, i) => (
-                      <TableRow key={i}>
-                          <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell><div className="h-4 w-12 bg-slate-100 rounded animate-pulse"/></TableCell>
-                          <TableCell/>
-                      </TableRow>
-                  ))
-              ) : displayMachines.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
-                    {search ? "No machines found matching that code." : "No machines found."}
-                  </TableCell>
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>Machine Code</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[100px]" />
                 </TableRow>
-              ) : (
-                displayMachines.map((m) => (
-                  <TableRow key={m.id} className="hover:bg-slate-50">
-                    <TableCell className="font-mono font-medium text-sm">
-                      {m.machineCode}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                        {getCustomerName(m.assignedTo)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusBadgeClass(m.status)}>
-                        {m.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(m)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDeleteMachine(m.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Remove
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                    [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell><div className="h-4 w-12 bg-slate-100 rounded animate-pulse"/></TableCell>
+                            <TableCell/>
+                        </TableRow>
+                    ))
+                ) : displayMachines.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
+                      {search ? "No machines found matching that code." : "No machines found."}
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  displayMachines.map((m) => (
+                    <TableRow key={m.id} className="hover:bg-muted/30">
+                      <TableCell className="font-mono font-medium">{m.machineCode}</TableCell>
+                      <TableCell>{getCustomerName(m.assignedTo)}</TableCell>
+                      <TableCell>
+                        <Badge className={cn("capitalize", statusBadgeClass(m.status))}>
+                          {m.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditClick(m)}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteMachine(m.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-border">
+            {isLoading ? (
+              [...Array(3)].map((_, i) => (
+                <div key={i} className="p-4 space-y-3">
+                  <div className="h-4 w-3/4 bg-slate-100 rounded animate-pulse"/>
+                  <div className="h-3 w-1/2 bg-slate-100 rounded animate-pulse"/>
+                </div>
+              ))
+            ) : displayMachines.map((m) => (
+              <div key={m.id} className="p-4 space-y-4 active:bg-muted/50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={cn("h-2 w-2 rounded-full", m.status === 'Online' ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-slate-400")}/>
+                      <p className="font-bold text-foreground truncate font-mono text-sm tracking-tight">{m.machineCode}</p>
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                      <User className="h-3 w-3" />
+                      {getCustomerName(m.assignedTo)}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2">
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem onClick={() => handleEditClick(m)}>
+                        <Edit className="mr-2 h-4 w-4" /> Edit Machine
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => handleDeleteMachine(m.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                    <Badge className={cn("text-[10px] uppercase h-5 font-bold tracking-wider", statusBadgeClass(m.status))}>
+                        {m.status}
+                    </Badge>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase gap-2" onClick={() => handleEditClick(m)}>
+                        <Wrench className="h-3 w-3" /> Manage
+                    </Button>
+                </div>
+              </div>
+            ))}
+            {displayMachines.length === 0 && !isLoading && (
+              <div className="py-20 text-center text-sm text-muted-foreground">
+                No machines found
+              </div>
+            )}
+          </div>
         </CardContent>
         {/* PAGINATION FOOTER - Hidden during search */}
         {!search && (

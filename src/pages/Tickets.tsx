@@ -283,7 +283,7 @@ export default function Tickets() {
                     variant="outline"
                     size="sm"
                     className={cn(
-                        "h-9 px-3 gap-2",
+                        "h-9 px-3 gap-2 hidden md:flex",
                         selectedIds.length === paginatedTickets.length && paginatedTickets.length > 0 && "bg-blue-50 border-blue-200 text-blue-600"
                     )}
                     onClick={toggleSelectAll}
@@ -297,7 +297,7 @@ export default function Tickets() {
                 </Button>
             )}
 
-            <div className="flex bg-muted p-1 rounded-lg border">
+            <div className="hidden md:flex bg-muted p-1 rounded-lg border">
                 <Button 
                     variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
                     size="sm" 
@@ -318,7 +318,7 @@ export default function Tickets() {
             
             <Button variant="outline" size="sm" className="gap-2 h-9 px-4 text-sm" onClick={() => setExportDialogOpen(true)}>
                 <Download className="h-4 w-4" />
-                Export
+                <span className="hidden sm:inline">Export</span>
             </Button>
         </div>
       </div>

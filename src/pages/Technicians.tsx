@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Phone, Mail, MoreHorizontal, Trash2, Edit, User as UserIcon, Lock, MapPin, AtSign, Loader2 } from 'lucide-react';
+import { Plus, Search, Phone, Mail, MoreHorizontal, Trash2, Edit, User as UserIcon, Lock, MapPin, AtSign, Loader2, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -361,7 +361,8 @@ export default function Technicians() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -433,6 +434,79 @@ export default function Technicians() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-border">
+            {filteredTechnicians.map((tech) => (
+              <div key={tech.id} className="p-4 space-y-4 active:bg-muted/50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                      <AvatarFallback className="bg-primary/10 text-primary text-base font-bold">
+                        {(tech.name || "U").split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground truncate">{tech.name}</p>
+                      <Badge
+                        variant={tech.role === 'manager' ? 'default' : 'secondary'}
+                        className="mt-1 h-5 text-[10px] uppercase tracking-wider"
+                      >
+                        {tech.role}
+                      </Badge>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2">
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem onClick={() => openEditDialog(tech)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(tech)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Staff
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Contact</p>
+                    <div className="flex items-center gap-2 text-foreground font-medium">
+                      <Phone className="h-3.5 w-3.5 text-primary" />
+                      {tech.phone}
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Jobs</p>
+                    <div className="inline-flex items-center gap-1.5 font-bold text-primary">
+                      <Ticket className="h-3.5 w-3.5" />
+                      {tech.activeJobs}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <span className="truncate">{tech.email}</span>
+                </div>
+              </div>
+            ))}
+            {filteredTechnicians.length === 0 && (
+              <div className="py-20 text-center">
+                <p className="text-muted-foreground">No matching staff found</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
