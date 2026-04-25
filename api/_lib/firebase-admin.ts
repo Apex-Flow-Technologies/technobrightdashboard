@@ -5,12 +5,17 @@ const initAdmin = () => {
 
   const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!serviceAccountRaw) {
-    console.error('❌ FIREBASE_SERVICE_ACCOUNT is missing');
-    return null;
+    throw new Error('BACKEND_ERROR: FIREBASE_SERVICE_ACCOUNT variable is missing in Vercel settings.');
   }
 
   try {
-    let serviceAccount = JSON.parse(serviceAccountRaw);
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(serviceAccountRaw);
+    } catch (parseErr) {
+      throw new Error('BACKEND_ERROR: FIREBASE_SERVICE_ACCOUNT is not valid JSON. Please re-copy from your file.');
+    }
+
     if (serviceAccount.private_key) {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
@@ -18,13 +23,12 @@ const initAdmin = () => {
     return admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-  } catch (error) {
-    console.error('❌ Firebase Admin Init Error:', error);
-    return null;
+  } catch (error: any) {
+    if (error.message.startsWith('BACKEND_ERROR:')) throw error;
+    throw new Error(`BACKEND_ERROR: Firebase Init Failed: ${error.message}`);
   }
 };
 
-// We don't export auth/db directly at top level to avoid crash if init fails
 export const getAdminAuth = () => {
   initAdmin();
   return admin.auth();
