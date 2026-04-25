@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminAuth, adminDb } from '../_lib/firebase-admin.js';
+import { getAdminAuth, getAdminDb } from '../_lib/firebase-admin.js';
 import admin from 'firebase-admin';
 import { z } from 'zod';
 
@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const virtualEmail = `${username.toLowerCase()}@apex-internal.com`;
     const userEmail = data.email || virtualEmail;
 
-    const authRecord = await adminAuth.createUser({
+    const authRecord = await getAdminAuth().createUser({
       email: userEmail,
       password: password,
       displayName: name,
@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    await adminDb.collection('user').add(userDoc);
+    await getAdminDb().collection('user').add(userDoc);
 
     return res.json({ success: true, uid: authRecord.uid });
   } catch (error: any) {

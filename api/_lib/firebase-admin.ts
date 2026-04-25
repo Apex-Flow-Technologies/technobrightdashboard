@@ -1,37 +1,38 @@
 import admin from 'firebase-admin';
 
-if (!admin.apps.length) {
-  try {
-    const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountRaw) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is missing.');
-    }
+const initAdmin = () => {
+  if (admin.apps.length > 0) return admin.app();
 
-    let serviceAccount;
-    try {
-      // Handle potential double-escaping or formatting issues
-      serviceAccount = JSON.parse(serviceAccountRaw);
-    } catch (e) {
-      console.error('❌ FIREBASE_SERVICE_ACCOUNT is not valid JSON. Check your Vercel settings.');
-      throw new Error('Invalid JSON in FIREBASE_SERVICE_ACCOUNT');
-    }
-
-    if (serviceAccount) {
-      // Fix for private key newlines if they were escaped during copy-paste
-      if (serviceAccount.private_key) {
-        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-      }
-
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      console.log('✅ Firebase Admin initialized');
-    }
-  } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin:', error);
+  const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!serviceAccountRaw) {
+    console.error('❌ FIREBASE_SERVICE_ACCOUNT is missing');
+    return null;
   }
-}
 
-export const adminAuth = admin.auth();
-export const adminDb = admin.firestore();
+  try {
+    let serviceAccount = JSON.parse(serviceAccountRaw);
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+
+    return admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } catch (error) {
+    console.error('❌ Firebase Admin Init Error:', error);
+    return null;
+  }
+};
+
+// We don't export auth/db directly at top level to avoid crash if init fails
+export const getAdminAuth = () => {
+  initAdmin();
+  return admin.auth();
+};
+
+export const getAdminDb = () => {
+  initAdmin();
+  return admin.firestore();
+};
+
 export default admin;

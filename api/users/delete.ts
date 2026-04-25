@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminAuth, adminDb } from '../_lib/firebase-admin.js';
+import { getAdminAuth, getAdminDb } from '../_lib/firebase-admin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,13 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (uid) {
       try {
-        await adminAuth.deleteUser(uid);
+        await getAdminAuth().deleteUser(uid);
       } catch (authErr: any) {
         console.warn('Auth deletion failed (user might not exist in Auth):', authErr.message);
       }
     }
 
-    await adminDb.collection('user').doc(id).delete();
+    await getAdminDb().collection('user').doc(id).delete();
 
     res.json({ success: true });
   } catch (error: any) {

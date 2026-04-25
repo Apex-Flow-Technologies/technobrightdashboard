@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { adminAuth, adminDb } from '../_lib/firebase-admin.js';
+import { getAdminAuth, getAdminDb } from '../_lib/firebase-admin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,21 +32,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (targetEmail) {
-        const currentAuthUser = await adminAuth.getUser(uid);
+        const currentAuthUser = await getAdminAuth().getUser(uid);
         if (currentAuthUser.email !== targetEmail) {
             authUpdates.email = targetEmail;
         }
     }
 
     if (Object.keys(authUpdates).length > 0) {
-      await adminAuth.updateUser(uid, authUpdates);
+      await getAdminAuth().updateUser(uid, authUpdates);
     }
 
     const firestoreUpdates = { ...updates };
     if (updates.username) firestoreUpdates.username = updates.username.toLowerCase();
     delete firestoreUpdates.password;
 
-    const userRef = adminDb.collection('user').doc(id);
+    const userRef = getAdminDb().collection('user').doc(id);
     await userRef.update(firestoreUpdates);
 
     res.json({ success: true });
