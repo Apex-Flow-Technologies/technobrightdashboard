@@ -8,9 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.env
+*.local
 dist
 dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*
@@ -23,7 +24,5 @@ dist-ssr
 *.sln
 *.sw?
 
-#API
-
-
-.node_modules/
+# API logic
+api/node_modules/
