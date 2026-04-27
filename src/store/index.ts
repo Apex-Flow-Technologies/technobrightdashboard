@@ -3,6 +3,7 @@ import { create } from "zustand";
 import {
   collection,
   getDocs,
+  setDoc,
   addDoc,
   deleteDoc,
   updateDoc,
@@ -198,7 +199,7 @@ interface AppState {
 
   assignTicket: (
     ticketId: string,
-    technicianId: string
+    technicianUsername: string
   ) => Promise<void>;
 
   deleteTickets: (ids: string[]) => Promise<void>;
@@ -223,14 +224,25 @@ interface AppState {
 
 async function logActivity(
   type: "assignment" | "status" | "creation" | "completion",
-  action: string
+  action: string,
+  customId?: string
 ) {
-  await addDoc(collection(db, "activities"), {
-    type,
-    action,
-    timestamp: serverTimestamp(),
-    status: "active",
-  });
+  try {
+    const activityData = {
+      type,
+      action,
+      timestamp: serverTimestamp(),
+      status: "active",
+    };
+
+    if (customId) {
+      await setDoc(doc(db, "activities", customId), activityData, { merge: true });
+    } else {
+      await addDoc(collection(db, "activities"), activityData);
+    }
+  } catch (err) {
+    console.error("Log activity error:", err);
+  }
 }
 
 /* ===============================
@@ -509,8 +521,35 @@ export const useStore = create<AppState>((set, get) => ({
   tickets: [],
 
   listenToTickets: () => {
-    const unsubscribe = onSnapshot(collection(db, "tickets"), (snap) => {
+    let isFirstLoad = true;
+    const unsubscribe = onSnapshot(collection(db, "tickets"), async (snap) => {
       const tickets: Ticket[] = snap.docs.map(formatTicket);
+      
+      // Detection logic for new tickets
+      if (!isFirstLoad) {
+        snap.docChanges().forEach(async (change) => {
+          if (change.type === "added") {
+            const data = change.doc.data();
+            const ticketId = change.doc.id;
+            const displayId = `TICKET #${String(data.ticketId).padStart(4, "0")}`;
+            const customerName = data.userName || "A customer";
+            
+            // Check if it's actually a NEW ticket (created in last 5 mins)
+            const createdAt = data.createdAt?.toDate();
+            const now = new Date();
+            if (createdAt && (now.getTime() - createdAt.getTime()) < 300000) {
+              // Log activity using a unique ID to prevent duplicates from multiple dashboard clients
+              await logActivity(
+                "creation", 
+                `${customerName} raised a new ticket: ${displayId}`,
+                `creation_${ticketId}`
+              );
+            }
+          }
+        });
+      }
+      isFirstLoad = false;
+
       set({ tickets });
 
       // Update technician active jobs when tickets change
@@ -552,20 +591,22 @@ export const useStore = create<AppState>((set, get) => ({
         const ticket = get().tickets.find(t => t.id === id);
         const ticketNo = ticket?.displayId || id;
         const { currentUser } = get();
-        const userName = currentUser?.name || "Admin";
+        
+        // Fix for "undefined" names - use a fallback and check technician name if manager is not logged in
+        const userName = currentUser?.name || ticket?.assignedToName || "Technician";
 
         let activityType: "assignment" | "status" | "creation" | "completion" = "status";
         let actionText = `${userName} marked ${ticketNo} as ${updates.status}`;
 
         if (updates.status === "completed") {
           activityType = "completion";
-          actionText = `${userName} completed ${ticketNo}`;
+          actionText = `${userName} completed ${ticketNo} — pending approval`;
         } else if (updates.status === "declined") {
           activityType = "status";
           actionText = `${userName} declined ${ticketNo}`;
         } else if (updates.status === "in-progress") {
           activityType = "status";
-          actionText = `${userName} started work on ${ticketNo}`;
+          actionText = `${userName} accepted ${ticketNo} and started work`;
         }
 
         await logActivity(activityType, actionText);
@@ -594,7 +635,11 @@ export const useStore = create<AppState>((set, get) => ({
         updatedAt: serverTimestamp(),
       });
 
-      await logActivity("assignment", `${userName} assigned ${ticketNo} to ${tech.name}`);
+      await logActivity(
+        "assignment", 
+        `${userName} assigned ${ticketNo} to ${tech.name}`,
+        `assignment_${ticketId}_${tech.id}`
+      );
     } catch (err) {
       console.error("Assign ticket error:", err);
     }
