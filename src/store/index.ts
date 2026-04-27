@@ -71,6 +71,7 @@ export interface Ticket {
 
   attachments?: Attachment[];
   internalNotes?: InternalNote[];
+  rawStatus?: string;
 }
 
 export interface Activity {
@@ -151,6 +152,7 @@ function formatTicket(docSnap: any): Ticket {
     machineCode: data.machineCode,
     attachments,
     internalNotes,
+    rawStatus: data.status || "new",
   };
 }
 
@@ -221,15 +223,11 @@ interface AppState {
 
 async function logActivity(
   type: "assignment" | "status" | "creation" | "completion",
-  action: string,
-  operatorName?: string,
-  ticketId?: string
+  action: string
 ) {
   await addDoc(collection(db, "activities"), {
     type,
     action,
-    operatorName: operatorName || "System",
-    ticketId: ticketId || "",
     timestamp: serverTimestamp(),
     status: "active",
   });
@@ -440,9 +438,10 @@ export const useStore = create<AppState>((set, get) => ({
         throw new Error(errData.error || 'Failed to create user via backend');
       }
 
-      const currentUser = get().currentUser;
       const roleLabel = tech.role.charAt(0).toUpperCase() + tech.role.slice(1);
-      await logActivity("creation", `${roleLabel} ${tech.name} was added by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager');
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
+      await logActivity("creation", `${userName} added ${roleLabel} ${tech.name}`);
     } catch (err) {
       console.error("Add technician error:", err);
       throw err; // Re-throw to show error in UI
@@ -467,9 +466,10 @@ export const useStore = create<AppState>((set, get) => ({
       await deleteDoc(doc(db, "user", id));
 
       if (tech) {
-        const currentUser = get().currentUser;
         const roleLabel = tech.role.charAt(0).toUpperCase() + tech.role.slice(1);
-        await logActivity("status", `${roleLabel} ${tech.name} was removed by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager');
+        const { currentUser } = get();
+        const userName = currentUser?.name || "Admin";
+        await logActivity("status", `${userName} removed ${roleLabel} ${tech.name}`);
       }
       console.log("Store: Firestore technician deleted successfully");
     } catch (err) {
@@ -549,21 +549,26 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       if (updates.status) {
+        const ticket = get().tickets.find(t => t.id === id);
+        const ticketNo = ticket?.displayId || id;
+        const { currentUser } = get();
+        const userName = currentUser?.name || "Admin";
+
         let activityType: "assignment" | "status" | "creation" | "completion" = "status";
-        let actionText = `Ticket ${id} marked as ${updates.status}`;
+        let actionText = `${userName} marked ${ticketNo} as ${updates.status}`;
 
         if (updates.status === "completed") {
           activityType = "completion";
+          actionText = `${userName} completed ${ticketNo}`;
         } else if (updates.status === "declined") {
           activityType = "status";
-          actionText = `Ticket ${id} was declined`;
+          actionText = `${userName} declined ${ticketNo}`;
         } else if (updates.status === "in-progress") {
           activityType = "status";
-          actionText = `Ticket ${id} is now in progress`;
+          actionText = `${userName} started work on ${ticketNo}`;
         }
 
-        const currentUser = get().currentUser;
-        await logActivity(activityType, `${actionText} by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager', id);
+        await logActivity(activityType, actionText);
       }
     } catch (err) {
       console.error("Update ticket error:", err);
@@ -577,7 +582,9 @@ export const useStore = create<AppState>((set, get) => ({
 
       const ticket = get().tickets.find((t) => t.id === ticketId);
       const ticketNo = ticket?.displayId || ticketId;
-      const currentUser = get().currentUser;
+
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
 
       await updateDoc(doc(db, "tickets", ticketId), {
         status: "assigned",
@@ -587,8 +594,7 @@ export const useStore = create<AppState>((set, get) => ({
         updatedAt: serverTimestamp(),
       });
 
-      const assigner = currentUser?.name || "Manager";
-      await logActivity("assignment", `${assigner} assigned ${ticketNo} to ${tech.name}`, assigner, ticketNo);
+      await logActivity("assignment", `${userName} assigned ${ticketNo} to ${tech.name}`);
     } catch (err) {
       console.error("Assign ticket error:", err);
     }
@@ -608,11 +614,13 @@ export const useStore = create<AppState>((set, get) => ({
         await deleteDoc(doc(db, "tickets", ticket.id));
       }
 
-      const currentUser = get().currentUser;
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
+
       if (ids.length === 1) {
-        await logActivity("status", `Ticket ${ticketsToDelete[0].displayId} was deleted by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager', ticketsToDelete[0].displayId);
+        await logActivity("status", `${userName} deleted ticket ${ticketsToDelete[0].displayId}`);
       } else {
-        await logActivity("status", `${ids.length} tickets were deleted by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager');
+        await logActivity("status", `${userName} deleted ${ids.length} tickets`);
       }
     } catch (err) {
       console.error("Delete tickets error:", err);
@@ -706,8 +714,9 @@ export const useStore = create<AppState>((set, get) => ({
         const err = await response.json();
         throw new Error(err.error || 'Failed to create customer');
       }
-      const currentUser = get().currentUser;
-      await logActivity("creation", `Customer ${cust.name} was added by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager');
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
+      await logActivity("creation", `${userName} added customer ${cust.name}`);
     } catch (err) {
       console.error("Add customer error:", err);
       throw err;
@@ -766,8 +775,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       await deleteDoc(doc(db, "user", id));
-      const currentUser = get().currentUser;
-      await logActivity("status", `Customer was removed by ${currentUser?.name || 'Manager'}`, currentUser?.name || 'Manager');
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
+      await logActivity("status", `${userName} removed a customer`);
       console.log("Store: Firestore document deleted successfully");
     } catch (err) {
       console.error("Store: Firestore delete failed:", err);

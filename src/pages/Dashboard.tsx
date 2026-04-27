@@ -4,7 +4,10 @@ import {
   Users, 
   CheckCircle2,
   TrendingUp,
-  Activity as ActivityIcon
+  Activity as ActivityIcon,
+  PlayCircle,
+  ClipboardCheck,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,20 +57,44 @@ export default function Dashboard() {
       description: 'Pending assignment'
     },
     {
-      title: 'Active Technicians',
-      value: technicians.filter((t) => t.role === 'technician' && t.status === 'online').length,
-      icon: Users,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      description: 'Current online'
+      title: 'Assigned',
+      value: tickets.filter(t => t.status === 'assigned').length, 
+      icon: UserCheck,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+      description: 'Waiting for start'
+    },
+    {
+      title: 'Active Work',
+      value: tickets.filter(t => t.status === 'in-progress' && t.rawStatus === 'in progress').length,
+      icon: PlayCircle,
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-500/10',
+      description: 'Being worked on'
+    },
+    {
+      title: 'Pending Closure',
+      value: tickets.filter(t => t.rawStatus === 'waiting_for_confirmation').length,
+      icon: ClipboardCheck,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
+      description: 'Awaiting confirmation'
     },
     {
       title: 'Completed Today',
       value: tickets.filter(t => t.status === 'completed' && new Date(t.updatedAt).toDateString() === new Date().toDateString()).length,
       icon: CheckCircle2,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      description: 'Resolved since midnight'
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+      description: 'Resolved today'
+    },
+    {
+      title: 'Active Techs',
+      value: technicians.filter((t) => t.role === 'technician' && t.status === 'online').length,
+      icon: Users,
+      color: 'text-slate-500',
+      bgColor: 'bg-slate-500/10',
+      description: 'Technicians online'
     },
   ];
 
@@ -89,7 +116,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
         initial="hidden"
         animate="show"
         variants={{

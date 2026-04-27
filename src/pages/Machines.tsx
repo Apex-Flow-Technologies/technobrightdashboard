@@ -15,6 +15,7 @@ import {
   where
 } from "firebase/firestore";
 import { db } from "@/firebase";
+import { cn } from "@/lib/utils";
 
 import { useState, useEffect } from "react";
 import { 
@@ -32,7 +33,8 @@ import {
   AlertCircle,
   ArrowUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
