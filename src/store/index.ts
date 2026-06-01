@@ -147,9 +147,15 @@ function formatTicket(docSnap: any): Ticket {
     location: data.location || "N/A",
     customerName: data.userName || "Unknown",
     customerPhone: data.phone || "",
-    createdAt: data.createdAt?.toDate() || new Date(),
-    updatedAt: data.updatedAt?.toDate() || new Date(),
-    assignedAt: data.assignedAt?.toDate(),
+    createdAt: data.createdAt 
+      ? (typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : new Date(data.createdAt)) 
+      : new Date(),
+    updatedAt: data.updatedAt 
+      ? (typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate() : new Date(data.updatedAt)) 
+      : (data.createdAt ? (typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate() : new Date(data.createdAt)) : new Date()),
+    assignedAt: data.assignedAt 
+      ? (typeof data.assignedAt.toDate === 'function' ? data.assignedAt.toDate() : new Date(data.assignedAt)) 
+      : undefined,
     machineCode: data.machineCode,
     attachments,
     internalNotes,
