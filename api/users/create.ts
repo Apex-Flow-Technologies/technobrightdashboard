@@ -7,7 +7,7 @@ const UserSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(6),
   name: z.string().min(2),
-  role: z.enum(['technician', 'manager', 'user']),
+  role: z.enum(['technician', 'manager', 'user', 'admin']),
   email: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),

@@ -54,7 +54,7 @@ export default function Technicians() {
     name: '',
     email: '',
     phone: '',
-    role: 'technician' as 'technician' | 'manager',
+    role: 'technician' as 'technician' | 'manager' | 'admin',
     username: '',
     password: '',
     address: ''
@@ -107,8 +107,8 @@ export default function Technicians() {
     // 4. Email
     if (!data.email) return "Email is required.";
     if (!emailRegex.test(data.email)) return "Invalid email format.";
-    if (!data.email.toLowerCase().endsWith('@gmail.com')) {
-        return "Email must be a valid @gmail.com address.";
+    if (!data.email.toLowerCase().endsWith('@gmail.com') && !data.email.toLowerCase().endsWith('@technobright.com')) {
+        return "Email must be a valid @gmail.com or @technobright.com address.";
     }
 
     // 5. Phone
@@ -273,7 +273,7 @@ export default function Technicians() {
                         <Label htmlFor="role">Role</Label>
                         <Select
                             value={newUser.role}
-                            onValueChange={(value: 'technician' | 'manager') =>
+                            onValueChange={(value: 'technician' | 'manager' | 'admin') =>
                             setNewUser({ ...newUser, role: value })
                             }
                         >
@@ -283,6 +283,7 @@ export default function Technicians() {
                             <SelectContent>
                             <SelectItem value="technician">Technician</SelectItem>
                             <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -391,7 +392,7 @@ export default function Technicians() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={tech.role === 'manager' ? 'default' : 'secondary'}
+                        variant={tech.role === 'admin' ? 'destructive' : tech.role === 'manager' ? 'default' : 'secondary'}
                         className="capitalize"
                       >
                         {tech.role}
@@ -450,7 +451,7 @@ export default function Technicians() {
                     <div className="min-w-0">
                       <p className="font-bold text-foreground truncate">{tech.name}</p>
                       <Badge
-                        variant={tech.role === 'manager' ? 'default' : 'secondary'}
+                        variant={tech.role === 'admin' ? 'destructive' : tech.role === 'manager' ? 'default' : 'secondary'}
                         className="mt-1 h-5 text-[10px] uppercase tracking-wider"
                       >
                         {tech.role}
@@ -565,7 +566,7 @@ export default function Technicians() {
                                 <Label htmlFor="edit-role">Role</Label>
                                 <Select
                                     value={editingUser.role}
-                                    onValueChange={(value: 'technician' | 'manager') =>
+                                    onValueChange={(value: 'technician' | 'manager' | 'admin') =>
                                         setEditingUser({ ...editingUser, role: value })
                                     }
                                 >
@@ -575,6 +576,7 @@ export default function Technicians() {
                                     <SelectContent>
                                         <SelectItem value="technician">Technician</SelectItem>
                                         <SelectItem value="manager">Manager</SelectItem>
+                                        <SelectItem value="admin">Admin</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

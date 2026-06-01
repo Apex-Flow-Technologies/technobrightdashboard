@@ -27,7 +27,7 @@ export interface User {
   name: string;
   email: string;
   username: string;
-  role: "technician" | "manager";
+  role: "technician" | "manager" | "admin";
   phone: string;
   uid?: string;
   address?: string;
@@ -355,7 +355,7 @@ export const useStore = create<AppState>((set, get) => ({
   listenToTechnicians: () => {
     const q = query(
       collection(db, "user"),
-      where("role", "in", ["technician", "manager"])
+      where("role", "in", ["technician", "manager", "admin"])
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -397,7 +397,7 @@ export const useStore = create<AppState>((set, get) => ({
       const userSnap = await getDocs(
         query(
           collection(db, "user"),
-          where("role", "in", ["technician", "manager"])
+          where("role", "in", ["technician", "manager", "admin"])
         )
       );
       const tickets = get().tickets;
