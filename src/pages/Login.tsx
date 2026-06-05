@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,9 +33,26 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCred.user.uid;
+      let loginEmail = email.trim();
+
+      // Resolve username to email if a matching user document is found in Firestore
       const { query, collection, where, getDocs } = await import("firebase/firestore");
+      const usernameQuery = query(
+        collection(db, "user"),
+        where("username", "==", loginEmail.toLowerCase())
+      );
+      const usernameSnap = await getDocs(usernameQuery);
+
+      if (!usernameSnap.empty) {
+        const userData = usernameSnap.docs[0].data();
+        if (userData.email) {
+          loginEmail = userData.email;
+        }
+      }
+
+      const userCred = await signInWithEmailAndPassword(auth, loginEmail, password);
+      const uid = userCred.user.uid;
+      
       const q = query(collection(db, "user"), where("uid", "==", uid));
       const snap = await getDocs(q);
 
@@ -50,7 +67,7 @@ export default function Login() {
         id: userDoc.id,
         uid: uid,
         name: userData.name || "Admin",
-        email: email,
+        email: loginEmail,
         role: userData.role || "Admin",
       });
 
@@ -65,7 +82,7 @@ export default function Login() {
       console.log(err);
       toast({
         title: "Error",
-        description: "Invalid email or password",
+        description: "Invalid username/email or password",
         variant: "destructive",
       });
     }
@@ -90,13 +107,13 @@ export default function Login() {
         <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Username or Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
-                  placeholder="admin@technobright.com"
+                  type="text"
+                  placeholder="Username or Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
