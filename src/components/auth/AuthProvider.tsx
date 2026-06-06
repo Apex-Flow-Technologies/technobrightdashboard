@@ -23,6 +23,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: userData.name,
               email: userData.email,
               role: userData.role,
+              phone: userData.phone || "",
+              address: userData.address || "",
+              username: userData.username || "",
             });
           } else {
             logout();

@@ -14,7 +14,7 @@ import {
   DocumentData,
   where
 } from "firebase/firestore";
-import { db } from "@/firebase";
+import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
 import { useState, useEffect } from "react";

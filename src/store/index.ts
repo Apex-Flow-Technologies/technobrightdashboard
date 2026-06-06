@@ -14,9 +14,11 @@ import {
   limit,
   serverTimestamp,
   onSnapshot,
+  getDoc,
+  increment,
 } from "firebase/firestore";
 
-import { db } from "@/firebase";
+import { db, auth } from "@/lib/firebase";
 
 /* ===============================
    Interfaces
@@ -73,6 +75,7 @@ export interface Ticket {
   attachments?: Attachment[];
   internalNotes?: InternalNote[];
   rawStatus?: string;
+  isOtherCustomer?: boolean;
 }
 
 export interface Activity {
@@ -160,6 +163,7 @@ function formatTicket(docSnap: any): Ticket {
     attachments,
     internalNotes,
     rawStatus: data.status || "new",
+    isOtherCustomer: !!data.isOtherCustomer,
   };
 }
 
@@ -170,7 +174,7 @@ function formatTicket(docSnap: any): Ticket {
 interface AppState {
   // Auth
   isAuthenticated: boolean;
-  currentUser: { id: string; uid: string; name: string; email: string; role: string } | null;
+  currentUser: { id: string; uid: string; name: string; email: string; role: string; phone?: string; address?: string; username?: string } | null;
   isInitializing: boolean;
 
   login: (user: any) => void;
@@ -216,6 +220,14 @@ interface AppState {
   addCustomer: (cust: any) => Promise<void>;
   updateCustomer: (id: string, updates: any) => Promise<void>;
   deleteCustomer: (id: string, uid?: string) => Promise<void>;
+  addOtherCustomerTicket: (ticket: {
+    customerName: string;
+    customerPhone: string;
+    machineCode: string;
+    description: string;
+    priority: "low" | "medium" | "high" | "urgent";
+    files: Array<{ file: File | Blob; type: "image" | "audio" }>;
+  }) => Promise<void>;
 
   // Activities
   activities: Activity[];
@@ -323,6 +335,45 @@ async function deleteFromCloudinary(url: string, type: "image" | "video" | "audi
   } catch (err) {
     console.error("Cloudinary delete error:", err);
   }
+}
+
+async function uploadFileToCloudinary(file: File | Blob, type: "image" | "audio") {
+  if (!CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+    throw new Error("Cloudinary credentials missing.");
+  }
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const signatureStr = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+
+  const msgUint8 = new TextEncoder().encode(signatureStr);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const signature = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const resourceType = type === "audio" ? "video" : "image";
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("timestamp", String(timestamp));
+  formData.append("api_key", CLOUDINARY_API_KEY);
+  formData.append("signature", signature);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("Cloudinary upload failed:", errText);
+    throw new Error(`Upload failed: ${errText}`);
+  }
+
+  const result = await response.json();
+  return result.secure_url;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -442,9 +493,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   addTechnician: async (tech: any) => {
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch(`${getBackendUrl()}/api/users/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           ...tech,
           role: tech.role // Should be 'technician' or 'manager'
@@ -470,9 +525,13 @@ export const useStore = create<AppState>((set, get) => ({
     console.log("Store: deleteTechnician called for ID:", id, "UID:", uid);
     
     try {
+      const token = await auth.currentUser?.getIdToken();
       await fetch(`${getBackendUrl()}/api/users/delete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id, uid }),
       });
     } catch (err) {
@@ -504,9 +563,13 @@ export const useStore = create<AppState>((set, get) => ({
           (body as any).uid = updates.uid;
       }
 
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch(`${getBackendUrl()}/api/users/update`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(body),
       });
 
@@ -756,9 +819,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   addCustomer: async (cust: any) => {
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch(`${getBackendUrl()}/api/users/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ ...cust, role: "user" }),
       });
       if (!response.ok) {
@@ -782,9 +849,13 @@ export const useStore = create<AppState>((set, get) => ({
           (body as any).uid = updates.uid;
       }
 
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch(`${getBackendUrl()}/api/users/update`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(body),
       });
       if (!response.ok) {
@@ -801,9 +872,13 @@ export const useStore = create<AppState>((set, get) => ({
     console.log("Store: deleteCustomer called for ID:", id, "UID:", uid);
     
     try {
+      const token = await auth.currentUser?.getIdToken();
       const response = await fetch(`${getBackendUrl()}/api/users/delete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id, uid }),
       });
       
@@ -832,6 +907,53 @@ export const useStore = create<AppState>((set, get) => ({
       console.log("Store: Firestore document deleted successfully");
     } catch (err) {
       console.error("Store: Firestore delete failed:", err);
+      throw err;
+    }
+  },
+
+  addOtherCustomerTicket: async (ticketData) => {
+    try {
+      const { customerName, customerPhone, machineCode, description, priority, files } = ticketData;
+
+      // 1. Upload files to Cloudinary in parallel
+      const attachments: Attachment[] = [];
+      for (const item of files) {
+        const url = await uploadFileToCloudinary(item.file, item.type);
+        attachments.push({ type: item.type, url });
+      }
+
+      // 2. Increment ticketCounter in Firestore transactionally
+      const counterRef = doc(db, "metadata", "ticketCounter");
+      await updateDoc(counterRef, { lastTicketNumber: increment(1) });
+      const counterSnap = await getDoc(counterRef);
+      const nextNumber = counterSnap.data()?.lastTicketNumber || 0;
+
+      // 3. Create the ticket document in the "tickets" collection
+      const newTicketRef = await addDoc(collection(db, "tickets"), {
+        userId: "other_customer",
+        userName: customerName,
+        phone: customerPhone,
+        machineCode: machineCode,
+        ticketId: nextNumber,
+        description,
+        attachments,
+        status: "open",
+        priority,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isOtherCustomer: true,
+      });
+
+      // 4. Log the creation activity
+      const { currentUser } = get();
+      const userName = currentUser?.name || "Admin";
+      await logActivity(
+        "creation",
+        `${userName} raised a ticket for Other Customer ${customerName}: TICKET #${String(nextNumber).padStart(4, "0")}`,
+        `creation_${newTicketRef.id}`
+      );
+    } catch (err) {
+      console.error("Add other customer ticket error:", err);
       throw err;
     }
   },

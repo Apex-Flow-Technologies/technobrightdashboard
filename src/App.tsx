@@ -14,6 +14,7 @@ import AddUser from "./pages/Customers";
 import NotFound from "./pages/NotFound";
 import Machines from "./pages/Machines";
 import Customers from "./pages/Customers";
+import OtherCustomers from "./pages/OtherCustomers";
 
 import { AuthProvider } from "./components/auth/AuthProvider";
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/technicians" element={<Technicians />} />
               <Route path="/tickets" element={<Tickets />} />
               <Route path="/customers" element={<Customers />} />
+              <Route path="/other-customers" element={<OtherCustomers />} />
               <Route path="/machines" element={<Machines />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

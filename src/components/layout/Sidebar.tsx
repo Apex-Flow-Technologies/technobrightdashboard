@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, Building2, Wrench } from 'lucide-react';
+import { LayoutDashboard, Users, Ticket, Settings, ChevronLeft, ChevronRight, Building2, Wrench, ClipboardPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo.jpg'; 
@@ -31,6 +31,10 @@ const navItems = [{
   icon: Building2,
   label: 'Customers',
   path: '/Customers'
+}, {
+  icon: ClipboardPlus,
+  label: 'Other Customers',
+  path: '/other-customers'
 }, {
   icon: Settings,
   label: 'Settings',

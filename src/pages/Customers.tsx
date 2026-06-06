@@ -34,7 +34,7 @@ import {
   onSnapshot,
   writeBatch
 } from "firebase/firestore";
-import { db } from "@/firebase";
+import { db, auth } from "@/lib/firebase";
 import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
@@ -385,9 +385,13 @@ export default function Customers() {
             role: "user"
         }));
 
+        const token = await auth.currentUser?.getIdToken();
         const response = await fetch(`${backendUrl}/api/users/bulk-create`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ users: usersToCreate }),
         });
 

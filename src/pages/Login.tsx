@@ -12,7 +12,7 @@ import logo from '@/assets/logo.jpg';
 //firebase imports
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/firebase";
+import { auth, db } from "@/lib/firebase";
 
 export default function Login() {
   const [email, setEmail] = useState('');

@@ -39,4 +39,30 @@ export const getAdminDb = () => {
   return admin.firestore();
 };
 
+export const verifyAdmin = async (req: any, targetUid?: string) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Unauthorized: Missing token');
+  }
+
+  const token = authHeader.split('Bearer ')[1];
+  const decodedToken = await getAdminAuth().verifyIdToken(token);
+
+  const db = getAdminDb();
+  const userSnap = await db.collection('user').where('uid', '==', decodedToken.uid).get();
+
+  if (userSnap.empty) {
+    throw new Error('Unauthorized: User not found in database');
+  }
+
+  const userData = userSnap.docs[0].data();
+  
+  // Allow access if the user is an admin or manager, OR if the request is targeting their own user record
+  if (userData.role !== 'admin' && userData.role !== 'manager' && (!targetUid || decodedToken.uid !== targetUid)) {
+    throw new Error('Unauthorized: Insufficient permissions');
+  }
+
+  return decodedToken;
+};
+
 export default admin;

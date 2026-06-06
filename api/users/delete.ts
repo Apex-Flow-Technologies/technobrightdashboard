@@ -1,10 +1,10 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { getAdminAuth, getAdminDb } from '../_lib/firebase-admin.js';
+import { getAdminAuth, getAdminDb, verifyAdmin } from '../_lib/firebase-admin.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -15,6 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    await verifyAdmin(req);
     const { id, uid } = req.body;
     if (!id) return res.status(400).json({ error: 'Firestore Document ID is required' });
 
