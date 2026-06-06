@@ -17,16 +17,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!querySnapshot.empty) {
             const userData = querySnapshot.docs[0].data();
-            login({
-              id: querySnapshot.docs[0].id,
-              uid: firebaseUser.uid,
-              name: userData.name,
-              email: userData.email,
-              role: userData.role,
-              phone: userData.phone || "",
-              address: userData.address || "",
-              username: userData.username || "",
-            });
+            const role = userData.role || "user";
+
+            if (role !== "admin" && role !== "manager") {
+              await auth.signOut();
+              logout();
+            } else {
+              login({
+                id: querySnapshot.docs[0].id,
+                uid: firebaseUser.uid,
+                name: userData.name,
+                email: userData.email,
+                role: role,
+                phone: userData.phone || "",
+                address: userData.address || "",
+                username: userData.username || "",
+              });
+            }
           } else {
             logout();
           }

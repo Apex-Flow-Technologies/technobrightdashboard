@@ -652,9 +652,10 @@ export default function Customers() {
 
       {/* ---------------- ADD DIALOG ---------------- */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col p-6 gap-0">
+          <DialogHeader className="pb-4"><DialogTitle>Add Customer</DialogTitle></DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-1 py-1">
+            <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Full Name <span className="text-red-500">*</span></Label>
@@ -704,8 +705,9 @@ export default function Customers() {
                     </div>
                 </div>
             </div>
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4 border-t mt-4">
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={createCustomer} disabled={isSaving}>Create</Button>
           </DialogFooter>
@@ -714,13 +716,14 @@ export default function Customers() {
 
       {/* ---------------- EDIT DIALOG ---------------- */}
       <Dialog open={!!editCustomer} onOpenChange={() => setEditCustomer(null)}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-6 gap-0">
+          <DialogHeader className="pb-4">
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>Update details and manage machine assignments.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 py-4">
+          <div className="flex-1 overflow-y-auto pr-1 py-1">
+            <div className="grid gap-5 py-4">
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="edit-name">Full Name</Label>
@@ -836,9 +839,10 @@ export default function Customers() {
                     </div>
                 </div>
             )}
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-4 border-t mt-4">
             <Button variant="outline" onClick={() => setEditCustomer(null)}>Cancel</Button>
             <Button onClick={saveCustomerEdits} disabled={isSaving}>Save Changes</Button>
           </DialogFooter>

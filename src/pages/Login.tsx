@@ -62,27 +62,34 @@ export default function Login() {
 
       const userDoc = snap.docs[0];
       const userData = userDoc.data();
+      const role = userData.role || "user";
+
+      if (role !== "admin" && role !== "manager") {
+        await auth.signOut();
+        throw new Error("Access Denied: Only Admins and Managers can access the dashboard");
+      }
       
       login({
         id: userDoc.id,
         uid: uid,
         name: userData.name || "Admin",
         email: loginEmail,
-        role: userData.role || "Admin",
+        role: role,
       });
 
       toast({
         title: "Welcome back!",
-        description: `Logged in as ${userData.role || 'Admin'}`,
+        description: `Logged in as ${role}`,
       });
 
       navigate("/dashboard");
 
-    } catch (err) {
+    } catch (err: any) {
       console.log(err);
+      const isAccessDenied = err instanceof Error && err.message.startsWith("Access Denied");
       toast({
-        title: "Error",
-        description: "Invalid username/email or password",
+        title: isAccessDenied ? "Access Denied" : "Error",
+        description: isAccessDenied ? err.message : "Invalid username/email or password",
         variant: "destructive",
       });
     }
